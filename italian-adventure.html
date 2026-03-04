@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🇮🇹 Italian Adventure!</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #009246;
+    --white: #fff;
+    --red: #ce2b37;
+    --yellow: #FFD166;
+    --sky: #4CC9F0;
+    --purple: #7B2FBE;
+    --orange: #FF6B35;
+    --bg: #FFF8E7;
+    --card: #ffffff;
+    --shadow: 0 8px 32px rgba(0,0,0,0.13);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Stars background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(circle at 10% 20%, rgba(255,209,102,0.18) 0%, transparent 40%),
+      radial-gradient(circle at 90% 80%, rgba(76,201,240,0.15) 0%, transparent 40%),
+      radial-gradient(circle at 50% 50%, rgba(0,146,70,0.07) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    background: linear-gradient(135deg, var(--green) 0%, #00b359 50%, var(--green) 100%);
+    padding: 18px 20px 14px;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 4px 20px rgba(0,146,70,0.4);
+    overflow: hidden;
+  }
+  header::before {
+    content: '🌍✈️🗺️🍕🛵🎭';
+    position: absolute;
+    top: 6px; left: 0; right: 0;
+    font-size: 1.1em;
+    letter-spacing: 8px;
+    opacity: 0.35;
+  }
+  header h1 {
+    font-family: 'Fredoka One', cursive;
+    color: #fff;
+    font-size: 2.6em;
+    text-shadow: 3px 3px 0 rgba(0,0,0,0.2);
+    position: relative;
+    z-index: 1;
+    letter-spacing: 1px;
+  }
+  header p {
+    color: rgba(255,255,255,0.9);
+    font-size: 1em;
+    font-weight: 700;
+    margin-top: 2px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ===== SCORE BAR ===== */
+  .score-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 18px;
+    background: #fff;
+    padding: 10px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 1;
+  }
+  .score-pill {
+    background: linear-gradient(135deg, var(--yellow), #ffb703);
+    border-radius: 50px;
+    padding: 6px 18px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1em;
+    color: #333;
+    box-shadow: 0 3px 10px rgba(255,183,3,0.4);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .stars-display {
+    display: flex; gap: 4px;
+  }
+  .star { font-size: 1.4em; transition: transform 0.3s; }
+  .star.lit { animation: starPop 0.4s ease; }
+
+  @keyframes starPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.6) rotate(20deg); }
+    100% { transform: scale(1); }
+  }
+
+  /* ===== LOCATION MAP BAR ===== */
+  .map-bar {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 14px 16px 10px;
+    scrollbar-width: none;
+    position: relative;
+    z-index: 1;
+  }
+  .map-bar::-webkit-scrollbar { display: none; }
+
+  .location-btn {
+    flex-shrink: 0;
+    background: #fff;
+    border: 3px solid #e0e0e0;
+    border-radius: 18px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.88em;
+    color: #777;
+    transition: all 0.25s;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    min-width: 80px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .location-btn .loc-emoji { font-size: 1.8em; }
+  .location-btn:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.12); }
+  .location-btn.active {
+    border-color: var(--green);
+    color: var(--green);
+    background: #f0fff5;
+    box-shadow: 0 4px 16px rgba(0,146,70,0.25);
+    transform: translateY(-3px);
+  }
+  .location-btn.completed { border-color: var(--yellow); background: #fffbea; }
+  .location-btn.completed .loc-emoji::after { content: '✅'; font-size: 0.5em; }
+
+  /* ===== MAIN CONTENT ===== */
+  main {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 16px 16px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ===== LOCATION HEADER ===== */
+  .location-header {
+    background: linear-gradient(135deg, #fff 0%, #f9f9f9 100%);
+    border-radius: 24px;
+    padding: 20px 24px 16px;
+    margin-bottom: 18px;
+    box-shadow: var(--shadow);
+    border: 3px solid #eee;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .location-header::before {
+    content: attr(data-bg);
+    position: absolute;
+    font-size: 8em;
+    opacity: 0.06;
+    top: -10px; right: -10px;
+    pointer-events: none;
+  }
+  .location-header h2 {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.9em;
+    color: #333;
+  }
+  .location-header p {
+    color: #666;
+    font-size: 0.95em;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+  .location-emoji-big { font-size: 3em; display: block; margin-bottom: 6px; }
+
+  /* ===== WORD CARDS ===== */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 480px) { .cards-grid { grid-template-columns: 1fr; } }
+
+  .word-card {
+    background: var(--card);
+    border-radius: 22px;
+    padding: 18px 16px;
+    box-shadow: var(--shadow);
+    border: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .word-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 19px;
+    background: linear-gradient(135deg, transparent 60%, rgba(0,0,0,0.03));
+  }
+  .word-card:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 16px 40px rgba(0,0,0,0.15); }
+  .word-card.learned { border-color: var(--green); background: #f0fff5; }
+  .word-card.learned::after {
+    content: '⭐';
+    position: absolute;
+    top: 8px; right: 10px;
+    font-size: 1.2em;
+    animation: fadeIn 0.3s;
+  }
+
+  .card-emoji { font-size: 2.4em; display: block; margin-bottom: 8px; }
+  .card-italian {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.5em;
+    color: var(--green);
+    display: block;
+  }
+  .card-english {
+    font-size: 0.85em;
+    color: #888;
+    font-weight: 700;
+    margin-top: 2px;
+    display: block;
+  }
+  .card-pronunciation {
+    font-size: 0.78em;
+    color: #aaa;
+    font-style: italic;
+    margin-top: 3px;
+    display: block;
+  }
+  .practice-btn {
+    margin-top: 10px;
+    background: linear-gradient(135deg, var(--green), #00b359);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 7px 18px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 0.88em;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 3px 10px rgba(0,146,70,0.3);
+  }
+  .practice-btn:hover { transform: scale(1.08); box-shadow: 0 5px 16px rgba(0,146,70,0.4); }
+
+  /* ===== QUIZ AREA ===== */
+  .quiz-area {
+    background: linear-gradient(135deg, #667eea22, #764ba222);
+    border: 3px solid #764ba2;
+    border-radius: 24px;
+    padding: 22px 20px;
+    margin-bottom: 18px;
+    position: relative;
+    box-shadow: 0 8px 30px rgba(118,75,162,0.15);
+  }
+  .quiz-area h3 {
+    font-family: 'Fredoka One', cursive;
+    color: var(--purple);
+    font-size: 1.3em;
+    margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .quiz-question {
+    background: #fff;
+    border-radius: 16px;
+    padding: 16px;
+    text-align: center;
+    margin-bottom: 14px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+  }
+  .quiz-question .q-emoji { font-size: 2.5em; display: block; margin-bottom: 6px; }
+  .quiz-question .q-text {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.5em;
+    color: #333;
+  }
+  .quiz-question .q-sub {
+    font-size: 0.85em;
+    color: #999;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+  .quiz-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .quiz-option {
+    background: #fff;
+    border: 3px solid #e0e0e0;
+    border-radius: 16px;
+    padding: 12px 10px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1em;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    color: #444;
+  }
+  .quiz-option:hover:not(:disabled) {
+    border-color: var(--purple);
+    color: var(--purple);
+    transform: scale(1.04);
+  }
+  .quiz-option.correct {
+    background: #d4edda;
+    border-color: var(--green);
+    color: var(--green);
+    animation: correctBounce 0.5s;
+  }
+  .quiz-option.wrong {
+    background: #f8d7da;
+    border-color: var(--red);
+    color: var(--red);
+    animation: wrongShake 0.4s;
+  }
+  .quiz-option:disabled { cursor: default; }
+
+  @keyframes correctBounce {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+  @keyframes wrongShake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+
+  /* ===== FEEDBACK ===== */
+  .feedback-box {
+    border-radius: 16px;
+    padding: 14px 18px;
+    text-align: center;
+    margin-top: 12px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1em;
+    animation: fadeIn 0.3s;
+  }
+  .feedback-box.correct-fb {
+    background: #d4edda;
+    color: var(--green);
+    border: 3px solid var(--green);
+  }
+  .feedback-box.wrong-fb {
+    background: #f8d7da;
+    color: var(--red);
+    border: 3px solid var(--red);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===== NEXT BUTTON ===== */
+  .next-btn {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    background: linear-gradient(135deg, var(--orange), #ff8c42);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 13px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1em;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(255,107,53,0.4);
+    transition: all 0.2s;
+  }
+  .next-btn:hover { transform: scale(1.04); box-shadow: 0 8px 24px rgba(255,107,53,0.5); }
+
+  /* ===== LOCATION COMPLETE ===== */
+  .location-complete {
+    background: linear-gradient(135deg, #fff9db, #fff3b0);
+    border: 3px solid var(--yellow);
+    border-radius: 24px;
+    padding: 28px 24px;
+    text-align: center;
+    box-shadow: 0 8px 30px rgba(255,209,102,0.3);
+    animation: fadeIn 0.5s;
+  }
+  .location-complete h2 {
+    font-family: 'Fredoka One', cursive;
+    font-size: 2em;
+    color: #333;
+    margin: 10px 0 6px;
+  }
+  .location-complete p {
+    color: #666;
+    font-size: 1em;
+    font-weight: 600;
+  }
+  .confetti-emoji {
+    font-size: 3em;
+    display: block;
+    animation: bounce 1s infinite;
+  }
+  @keyframes bounce {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .complete-stars { font-size: 2em; margin: 10px 0; letter-spacing: 4px; }
+
+  /* ===== SPEAK BUTTON ===== */
+  .speak-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1em;
+    padding: 2px 6px;
+    border-radius: 8px;
+    transition: transform 0.2s;
+    vertical-align: middle;
+  }
+  .speak-btn:hover { transform: scale(1.3); }
+
+  /* ===== PROGRESS BAR ===== */
+  .progress-wrap {
+    background: #e0e0e0;
+    border-radius: 50px;
+    height: 10px;
+    margin: 10px 0 0;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), #00cc66);
+    border-radius: 50px;
+    transition: width 0.5s cubic-bezier(.68,-0.55,.27,1.55);
+  }
+
+  /* ===== INTRO SCREEN ===== */
+  #intro-screen {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(160deg, #009246, #00b359 40%, #ce2b37 100%);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 30px;
+    transition: opacity 0.6s, transform 0.6s;
+  }
+  #intro-screen.hidden {
+    opacity: 0;
+    transform: scale(1.1);
+    pointer-events: none;
+  }
+  #intro-screen h1 {
+    font-family: 'Fredoka One', cursive;
+    color: #fff;
+    font-size: 3em;
+    text-shadow: 3px 3px 0 rgba(0,0,0,0.2);
+    margin-bottom: 10px;
+  }
+  #intro-screen .sub {
+    color: rgba(255,255,255,0.9);
+    font-size: 1.1em;
+    font-weight: 700;
+    margin-bottom: 30px;
+    max-width: 320px;
+    line-height: 1.5;
+  }
+  #intro-screen .flag { font-size: 5em; margin-bottom: 14px; animation: bounce 1.5s infinite; }
+  .start-btn {
+    background: var(--yellow);
+    color: #333;
+    border: none;
+    border-radius: 50px;
+    padding: 16px 48px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.5em;
+    cursor: pointer;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.2);
+    transition: all 0.2s;
+  }
+  .start-btn:hover { transform: scale(1.06) rotate(-1deg); }
+
+  /* ===== AUDIO INDICATOR ===== */
+  .speaking { animation: pulse 0.6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+</style>
+</head>
+<body>
+
+<!-- INTRO SCREEN -->
+<div id="intro-screen">
+  <span class="flag">🇮🇹</span>
+  <h1>Ciao! Let's Learn Italian!</h1>
+  <p class="sub">Travel across Italy and collect stars by learning Italian words! 🌟</p>
+  <button class="start-btn" onclick="startApp()">Let's Go! ✈️</button>
+</div>
+
+<!-- SCORE BAR -->
+<header>
+  <h1>🇮🇹 Italian Adventure!</h1>
+  <p>Travel Italy & Learn Italian ✈️</p>
+</header>
+
+<div class="score-bar">
+  <div class="score-pill">⭐ Stars: <span id="star-count">0</span></div>
+  <div class="stars-display" id="stars-display"></div>
+  <div class="score-pill">📍 <span id="location-count">0</span> / 5 visited</div>
+</div>
+
+<!-- LOCATION MAP BAR -->
+<div class="map-bar" id="map-bar"></div>
+
+<!-- MAIN -->
+<main id="main-content"></main>
+
+<script>
+// ===== DATA =====
+const locations = [
+  {
+    id: 'rome',
+    name: 'Rome',
+    emoji: '🏛️',
+    description: 'The Colosseum & Ancient Ruins!',
+    bg: '🏛️',
+    color: '#ce2b37',
+    words: [
+      { italian: 'Ciao', english: 'Hello / Goodbye', emoji: '👋', pronunciation: 'chow' },
+      { italian: 'Grazie', english: 'Thank you', emoji: '🙏', pronunciation: 'grat-see-eh' },
+      { italian: 'Per favore', english: 'Please', emoji: '🌟', pronunciation: 'pair fa-vo-reh' },
+      { italian: 'Sì', english: 'Yes', emoji: '✅', pronunciation: 'see' },
+      { italian: 'No', english: 'No', emoji: '❌', pronunciation: 'noh' },
+      { italian: 'Buongiorno', english: 'Good morning', emoji: '🌅', pronunciation: 'bwon-jor-no' },
+    ]
+  },
+  {
+    id: 'venice',
+    name: 'Venice',
+    emoji: '🚤',
+    description: 'Canals & Gondola Rides!',
+    bg: '🌊',
+    color: '#4CC9F0',
+    words: [
+      { italian: 'Buona sera', english: 'Good evening', emoji: '🌆', pronunciation: 'bwona seh-ra' },
+      { italian: 'Arrivederci', english: 'Goodbye', emoji: '👋', pronunciation: 'ah-ree-veh-der-chee' },
+      { italian: 'Come stai?', english: 'How are you?', emoji: '😊', pronunciation: 'ko-meh sty' },
+      { italian: 'Bene', english: 'I\'m well / Good', emoji: '😄', pronunciation: 'beh-neh' },
+      { italian: 'Aiuto!', english: 'Help!', emoji: '🆘', pronunciation: 'ah-yoo-toh' },
+      { italian: 'Scusi', english: 'Excuse me', emoji: '🤝', pronunciation: 'skoo-zee' },
+    ]
+  },
+  {
+    id: 'florence',
+    name: 'Florence',
+    emoji: '🎨',
+    description: 'Art & Beautiful Museums!',
+    bg: '🎨',
+    color: '#FF6B35',
+    words: [
+      { italian: 'Bellissimo', english: 'Beautiful / Amazing', emoji: '😍', pronunciation: 'beh-lis-see-mo' },
+      { italian: 'Quant\'è?', english: 'How much is it?', emoji: '💰', pronunciation: 'kwan-teh' },
+      { italian: 'Acqua', english: 'Water', emoji: '💧', pronunciation: 'ak-wa' },
+      { italian: 'Fame', english: 'Hungry', emoji: '🍕', pronunciation: 'fa-meh' },
+      { italian: 'Bagno', english: 'Bathroom', emoji: '🚽', pronunciation: 'ban-yo' },
+      { italian: 'Aperto', english: 'Open', emoji: '🚪', pronunciation: 'ah-pair-toh' },
+    ]
+  },
+  {
+    id: 'naples',
+    name: 'Naples',
+    emoji: '🍕',
+    description: 'Home of Pizza & Pasta!',
+    bg: '🍕',
+    color: '#FF9500',
+    words: [
+      { italian: 'Delizioso', english: 'Delicious', emoji: '😋', pronunciation: 'deh-lee-tsyo-so' },
+      { italian: 'Gelato', english: 'Ice cream', emoji: '🍦', pronunciation: 'jeh-la-toh' },
+      { italian: 'Pizza', english: 'Pizza', emoji: '🍕', pronunciation: 'peet-sa' },
+      { italian: 'Ancora', english: 'More / Again', emoji: '🔁', pronunciation: 'an-ko-ra' },
+      { italian: 'Amico', english: 'Friend', emoji: '🫂', pronunciation: 'ah-mee-ko' },
+      { italian: 'Basta', english: 'Enough / Stop', emoji: '✋', pronunciation: 'ba-sta' },
+    ]
+  },
+  {
+    id: 'sicily',
+    name: 'Sicily',
+    emoji: '🌋',
+    description: 'Mount Etna & Blue Sea!',
+    bg: '🌋',
+    color: '#9B59B6',
+    words: [
+      { italian: 'Mare', english: 'Sea', emoji: '🌊', pronunciation: 'ma-reh' },
+      { italian: 'Sole', english: 'Sun', emoji: '☀️', pronunciation: 'so-leh' },
+      { italian: 'Numero', english: 'Number', emoji: '🔢', pronunciation: 'noo-meh-ro' },
+      { italian: 'Grande', english: 'Big / Great', emoji: '🦁', pronunciation: 'gran-deh' },
+      { italian: 'Piccolo', english: 'Small / Little', emoji: '🐭', pronunciation: 'pee-ko-lo' },
+      { italian: 'Buona notte', english: 'Good night', emoji: '🌙', pronunciation: 'bwona not-teh' },
+    ]
+  }
+];
+
+// ===== STATE =====
+let state = {
+  currentLocation: 0,
+  stars: 0,
+  completedLocations: [],
+  learnedWords: {},  // locationId -> Set of word indices
+  phase: 'learn',    // 'learn' or 'quiz'
+  quizWord: null,
+  quizOptions: [],
+  quizAnswered: false,
+  quizCorrect: null,
+  currentQuizIndex: 0,
+  quizWords: [],
+};
+
+// ===== SPEECH =====
+function speak(text, lang = 'it-IT') {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = lang;
+  utter.rate = 0.85;
+  utter.pitch = 1.1;
+  window.speechSynthesis.speak(utter);
+}
+
+// ===== INIT =====
+function startApp() {
+  document.getElementById('intro-screen').classList.add('hidden');
+  setTimeout(() => document.getElementById('intro-screen').remove(), 700);
+  renderAll();
+}
+
+function renderAll() {
+  renderMapBar();
+  renderStars();
+  renderMain();
+}
+
+// ===== MAP BAR =====
+function renderMapBar() {
+  const bar = document.getElementById('map-bar');
+  bar.innerHTML = locations.map((loc, i) => `
+    <button class="location-btn ${i === state.currentLocation ? 'active' : ''} ${state.completedLocations.includes(i) ? 'completed' : ''}"
+      onclick="gotoLocation(${i})">
+      <span class="loc-emoji">${loc.emoji}</span>
+      <span>${loc.name}</span>
+    </button>
+  `).join('');
+
+  document.getElementById('location-count').textContent = state.completedLocations.length;
+}
+
+function gotoLocation(idx) {
+  state.currentLocation = idx;
+  state.phase = 'learn';
+  state.currentQuizIndex = 0;
+  renderAll();
+}
+
+// ===== STARS =====
+function renderStars() {
+  document.getElementById('star-count').textContent = state.stars;
+  const display = document.getElementById('stars-display');
+  display.innerHTML = Array(Math.min(state.stars, 10)).fill('<span class="star">⭐</span>').join('');
+}
+
+function addStar() {
+  state.stars++;
+  renderStars();
+  const display = document.getElementById('stars-display');
+  const stars = display.querySelectorAll('.star');
+  if (stars.length > 0) {
+    const last = stars[stars.length - 1];
+    last.classList.add('lit');
+    setTimeout(() => last.classList.remove('lit'), 500);
+  }
+}
+
+// ===== MAIN RENDER =====
+function renderMain() {
+  const loc = locations[state.currentLocation];
+  const main = document.getElementById('main-content');
+
+  if (state.completedLocations.includes(state.currentLocation) && state.phase !== 'quiz') {
+    main.innerHTML = renderCompleteScreen(loc);
+    return;
+  }
+
+  const locHeader = `
+    <div class="location-header" data-bg="${loc.bg}">
+      <span class="location-emoji-big">${loc.emoji}</span>
+      <h2>${loc.name}</h2>
+      <p>${loc.description}</p>
+      <div class="progress-wrap">
+        <div class="progress-fill" style="width:${getProgress(loc)}%"></div>
+      </div>
+    </div>
+  `;
+
+  if (state.phase === 'learn') {
+    main.innerHTML = locHeader + renderLearnPhase(loc);
+  } else {
+    main.innerHTML = locHeader + renderQuizPhase(loc);
+  }
+}
+
+function getProgress(loc) {
+  const learned = state.learnedWords[loc.id] || new Set();
+  return Math.round((learned.size / loc.words.length) * 100);
+}
+
+// ===== LEARN PHASE =====
+function renderLearnPhase(loc) {
+  const learned = state.learnedWords[loc.id] || new Set();
+
+  const cards = loc.words.map((w, i) => `
+    <div class="word-card ${learned.has(i) ? 'learned' : ''}" onclick="practiceWord('${loc.id}', ${i})">
+      <span class="card-emoji">${w.emoji}</span>
+      <span class="card-italian">${w.italian} <button class="speak-btn" onclick="event.stopPropagation(); speak('${w.italian}')">🔊</button></span>
+      <span class="card-english">${w.english}</span>
+      <span class="card-pronunciation">Say it: "${w.pronunciation}"</span>
+      <button class="practice-btn">Practice! 🎯</button>
+    </div>
+  `).join('');
+
+  const allLearned = learned.size >= loc.words.length;
+  const quizBtn = allLearned
+    ? `<button class="next-btn" onclick="startQuiz()">🎮 Ready for the Quiz? Let's Go!</button>`
+    : `<button class="next-btn" style="opacity:0.5;cursor:default" disabled>
+         Practice all ${loc.words.length} words to unlock the quiz! (${learned.size}/${loc.words.length} done)
+       </button>`;
+
+  return `
+    <div class="cards-grid">${cards}</div>
+    ${quizBtn}
+  `;
+}
+
+function practiceWord(locId, wordIdx) {
+  const loc = locations.find(l => l.id === locId);
+  const word = loc.words[wordIdx];
+  speak(word.italian);
+
+  // Mark as learned
+  if (!state.learnedWords[locId]) state.learnedWords[locId] = new Set();
+  if (!state.learnedWords[locId].has(wordIdx)) {
+    state.learnedWords[locId].add(wordIdx);
+    addStar();
+  }
+  renderMain();
+}
+
+// ===== QUIZ PHASE =====
+function startQuiz() {
+  state.phase = 'quiz';
+  state.currentQuizIndex = 0;
+  const loc = locations[state.currentLocation];
+  state.quizWords = [...loc.words].sort(() => Math.random() - 0.5);
+  state.quizAnswered = false;
+  renderMain();
+}
+
+function renderQuizPhase(loc) {
+  if (state.currentQuizIndex >= state.quizWords.length) {
+    // Quiz complete!
+    if (!state.completedLocations.includes(state.currentLocation)) {
+      state.completedLocations.push(state.currentLocation);
+      for (let i = 0; i < 3; i++) addStar();
+    }
+    renderMapBar();
+    return renderCompleteScreen(loc);
+  }
+
+  const word = state.quizWords[state.currentQuizIndex];
+  const allWords = loc.words;
+
+  // Generate wrong options
+  const others = allWords.filter(w => w.italian !== word.italian);
+  const shuffled = others.sort(() => Math.random() - 0.5).slice(0, 3);
+  const options = [...shuffled, word].sort(() => Math.random() - 0.5);
+
+  // Decide quiz type: english->italian or italian->english
+  const quizType = Math.random() > 0.5 ? 'e2i' : 'i2e';
+
+  const questionText = quizType === 'e2i'
+    ? `What is "${word.english}" in Italian?`
+    : `What does "${word.italian}" mean?`;
+
+  const optionBtns = options.map(opt => {
+    const label = quizType === 'e2i' ? opt.italian : opt.english;
+    const isCorrect = opt.italian === word.italian;
+    let cls = 'quiz-option';
+    if (state.quizAnswered) {
+      if (isCorrect) cls += ' correct';
+      else if (opt === state.wrongPick) cls += ' wrong';
+    }
+    return `<button class="${cls}" ${state.quizAnswered ? 'disabled' : ''}
+      onclick="answerQuiz(this, ${isCorrect}, '${word.italian}', '${quizType === 'e2i' ? opt.italian : opt.english}')">
+      ${label}
+    </button>`;
+  }).join('');
+
+  let feedbackHtml = '';
+  if (state.quizAnswered) {
+    if (state.quizCorrect) {
+      feedbackHtml = `<div class="feedback-box correct-fb">🎉 Fantastico! That's right! ⭐</div>`;
+    } else {
+      feedbackHtml = `<div class="feedback-box wrong-fb">😅 Not quite! "${word.italian}" means "${word.english}". Try again next time!</div>`;
+    }
+  }
+
+  const nextLabel = state.currentQuizIndex < state.quizWords.length - 1 ? 'Next Word →' : '🏆 Finish!';
+
+  return `
+    <div class="quiz-area">
+      <h3>🎮 Quiz Time! (${state.currentQuizIndex + 1} / ${state.quizWords.length})</h3>
+      <div class="quiz-question">
+        <span class="q-emoji">${word.emoji}</span>
+        <div class="q-text">${questionText}</div>
+        ${quizType === 'i2e' ? `<div class="q-sub">Say it: "${word.pronunciation}" 🔊 <button class="speak-btn" onclick="speak('${word.italian}')">▶️</button></div>` : ''}
+      </div>
+      <div class="quiz-options">${optionBtns}</div>
+      ${feedbackHtml}
+      ${state.quizAnswered ? `<button class="next-btn" onclick="nextQuizWord()">${nextLabel}</button>` : ''}
+    </div>
+  `;
+}
+
+function answerQuiz(btn, isCorrect, italian, chosen) {
+  if (state.quizAnswered) return;
+  state.quizAnswered = true;
+  state.quizCorrect = isCorrect;
+  if (!isCorrect) state.wrongPick = { italian: chosen };
+  if (isCorrect) {
+    addStar();
+    speak(italian);
+  } else {
+    speak('No, riprova!');
+  }
+  renderMain();
+}
+
+function nextQuizWord() {
+  state.currentQuizIndex++;
+  state.quizAnswered = false;
+  state.quizCorrect = null;
+  state.wrongPick = null;
+  renderMain();
+}
+
+// ===== COMPLETE SCREEN =====
+function renderCompleteScreen(loc) {
+  const nextIdx = state.currentLocation + 1;
+  const hasNext = nextIdx < locations.length;
+
+  return `
+    <div class="location-complete">
+      <span class="confetti-emoji">🎉</span>
+      <h2>Bravissimo!</h2>
+      <div class="complete-stars">⭐⭐⭐</div>
+      <p>You've conquered <strong>${loc.name}</strong>! You know all the words!</p>
+      <br>
+      ${hasNext
+        ? `<button class="next-btn" onclick="gotoLocation(${nextIdx})">
+             ✈️ Fly to ${locations[nextIdx].name} ${locations[nextIdx].emoji}
+           </button>`
+        : `<div style="margin-top:16px; font-family:'Fredoka One',cursive; font-size:1.4em; color:#009246;">
+             🏆 You've traveled all of Italy! Sei fantastico! 🇮🇹
+           </div>`
+      }
+      <button class="next-btn" style="margin-top:10px; background: linear-gradient(135deg, #764ba2, #667eea);"
+        onclick="replayLocation()">
+        🔁 Practice ${loc.name} Again
+      </button>
+    </div>
+  `;
+}
+
+function replayLocation() {
+  const loc = locations[state.currentLocation];
+  state.learnedWords[loc.id] = new Set();
+  state.completedLocations = state.completedLocations.filter(i => i !== state.currentLocation);
+  state.phase = 'learn';
+  renderAll();
+}
+
+// ===== START =====
+renderAll();
+</script>
+</body>
+</html>
