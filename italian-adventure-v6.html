@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🇮🇹 Italian Adventure!</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --salmon: #F2B5A0;
+  --salmon-dark: #E8997F;
+  --road: #F5ECD8;
+  --road-border: #EAD9BE;
+  --river: #8CC8D8;
+  --river-dark: #6AAEC0;
+  --green-tree: #7BBF5A;
+  --green-dark: #5A9A3A;
+  --building-cream: #F5E8C8;
+  --building-warm: #E8C898;
+  --building-red: #D4705A;
+  --building-pink: #E89888;
+  --text-dark: #4A2E1A;
+  --text-med: #7A5030;
+  --white-cloud: #FFF8F0;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  height: 100%;
+}
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: #C8604A;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The whole app lives inside a scaled wrapper */
+#app-root {
+  display: flex;
+  flex-direction: column;
+  background: var(--salmon);
+  position: relative;
+  /* Width & height set dynamically by JS to fill viewport while keeping aspect */
+  width: 100%;
+  height: 100%;
+  /* On very small / very tall screens we allow scroll as a fallback */
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+}
+
+/* ===== HEADER ===== */
+.app-header {
+  background: #C8604A;
+  padding: 0 16px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.2);
+}
+.app-title {
+  font-family: 'Fredoka One', cursive;
+  color: #fff;
+  font-size: 1.4em;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+  letter-spacing: 0.5px;
+}
+.score-strip { display: flex; align-items: center; gap: 10px; }
+.score-pill {
+  background: rgba(255,255,255,0.22);
+  border: 2px solid rgba(255,255,255,0.4);
+  border-radius: 50px;
+  padding: 3px 12px;
+  font-family: 'Fredoka One', cursive;
+  color: #fff;
+  font-size: 0.9em;
+}
+
+/* ===== CITY TABS ===== */
+.city-tabs {
+  display: flex;
+  flex-shrink: 0;
+  background: #B85540;
+  border-bottom: 3px solid #A04030;
+}
+.city-tab {
+  flex: 1;
+  padding: 9px;
+  text-align: center;
+  cursor: pointer;
+  font-family: 'Fredoka One', cursive;
+  font-size: 1em;
+  color: rgba(255,255,255,0.65);
+  border-bottom: 4px solid transparent;
+  transition: all 0.2s;
+  user-select: none;
+  letter-spacing: 0.5px;
+}
+.city-tab.active { color: #fff; border-bottom-color: #FFD166; background: rgba(0,0,0,0.12); }
+.city-tab:hover:not(.active) { color: rgba(255,255,255,0.85); }
+
+/* ===== MAP STAGE ===== */
+.map-stage {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0; /* important: lets flex child shrink */
+}
+.city-view {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.4s, transform 0.4s;
+}
+.city-view.hidden { opacity: 0; pointer-events: none; transform: scale(0.98); }
+
+.map-svg { width: 100%; height: 100%; display: block; }
+
+/* ===== LANDMARK GROUPS ===== */
+.landmark-hit {
+  cursor: pointer;
+}
+.landmark-hit:hover .building-body { filter: brightness(1.08); }
+
+/* Label backgrounds */
+.lbl-bg {
+  rx: 6;
+  fill: rgba(255,255,255,0.85);
+}
+
+/* Pulse dot */
+.pulse-dot {
+  animation: pulseDot 2s ease-in-out infinite;
+  transform-origin: center;
+}
+@keyframes pulseDot {
+  0%,100% { r: 7; opacity: 0.9; }
+  50% { r: 11; opacity: 0.4; }
+}
+.visited-dot { display: none; }
+.landmark-hit.done .pulse-dot { display: none; }
+.landmark-hit.done .visited-dot { display: block; }
+
+/* ===== SLIDE-UP PANEL ===== */
+.panel-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+.panel-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0);
+  transition: background 0.35s;
+  pointer-events: none;
+}
+.panel-backdrop.open {
+  background: rgba(0,0,0,0.28);
+  pointer-events: all;
+}
+.landmark-panel {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: #FFF8F2;
+  border-radius: 26px 26px 0 0;
+  box-shadow: 0 -6px 40px rgba(0,0,0,0.22);
+  transform: translateY(100%);
+  transition: transform 0.38s cubic-bezier(0.34,1.4,0.64,1);
+  pointer-events: all;
+  /* Design-space px, NOT vh — the app is CSS-transform scaled so vh is the real viewport */
+  max-height: 455px;
+  display: flex;
+  flex-direction: column;
+}
+.landmark-panel.open { transform: translateY(0); }
+
+/* Scrollable content inside the panel */
+.panel-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 18px 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.panel-handle {
+  width: 38px; height: 5px;
+  background: #ddd;
+  border-radius: 50px;
+  margin: 12px auto 8px;
+  flex-shrink: 0;
+}
+.panel-close {
+  position: absolute;
+  top: 10px; right: 16px;
+  width: 32px; height: 32px;
+  background: #eee;
+  border: none;
+  border-radius: 50%;
+  font-size: 1em;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+  z-index: 2;
+}
+.panel-close:hover { background: #ddd; }
+
+.panel-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.panel-icon { font-size: 2.8em; line-height: 1; flex-shrink: 0; }
+.panel-name {
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.45em;
+  line-height: 1.2;
+}
+.panel-desc { font-size: 0.82em; color: #888; font-weight: 700; margin-top: 3px; }
+
+/* ===== WORD TILES ===== */
+.words-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin-bottom: 12px;
+}
+@media(max-width:400px){ .words-grid{ grid-template-columns:1fr; } }
+
+.word-tile {
+  background: #fff;
+  border: 2.5px solid #eee;
+  border-radius: 16px;
+  padding: 12px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.word-tile:hover { transform: scale(1.04); border-color: #ccc; }
+.word-tile.learned { background: #f0fff5; border-color: #5AAA78; }
+.word-tile.learned::after { content: '⭐'; position: absolute; top:5px; right:7px; font-size:0.9em; }
+
+.tile-emoji { font-size: 1.9em; display: block; margin-bottom: 5px; }
+.tile-ita { font-family: 'Fredoka One', cursive; font-size: 1.2em; color: #C8604A; display: block; }
+.tile-eng { font-size: 0.78em; color: #777; font-weight: 800; display: block; margin-top: 2px; }
+.tile-pron { font-size: 0.7em; color: #aaa; font-style: italic; display: block; margin-top: 2px; }
+.tile-hear {
+  margin-top: 7px;
+  background: #C8604A;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 4px 13px;
+  font-family: 'Fredoka One', cursive;
+  font-size: 0.75em;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.tile-hear:hover { transform: scale(1.1); }
+
+/* Phrase tiles */
+.phrase-tile {
+  grid-column: span 2;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.phrase-tile .tile-emoji { flex-shrink: 0; margin-bottom: 0; }
+.phrase-tile .tile-info { flex: 1; }
+.phrase-tile .tile-ita { font-size: 1.05em; }
+.phrase-tile .tile-hear { margin-top: 4px; }
+@media(max-width:400px){ .phrase-tile{ grid-column: span 1; } }
+
+/* ===== PROGRESS HINT ===== */
+.progress-hint {
+  text-align: center;
+  padding: 10px 14px;
+  background: #F5ECD8;
+  border-radius: 14px;
+  font-family: 'Fredoka One', cursive;
+  font-size: 0.88em;
+  color: #8A6040;
+  margin-bottom: 10px;
+}
+
+/* ===== QUIZ ===== */
+.quiz-box {
+  background: linear-gradient(135deg, #FFF0E8, #FFE4D4);
+  border: 2.5px solid #E8A080;
+  border-radius: 20px;
+  padding: 15px;
+}
+.quiz-box h3 {
+  font-family: 'Fredoka One', cursive;
+  color: #C8604A;
+  font-size: 1.05em;
+  margin-bottom: 11px;
+  display: flex; align-items: center; gap: 6px;
+}
+.quiz-q {
+  background: #fff;
+  border-radius: 14px;
+  padding: 13px;
+  text-align: center;
+  margin-bottom: 11px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.quiz-q-emoji { font-size: 2em; display: block; margin-bottom: 4px; }
+.quiz-q-text { font-family: 'Fredoka One', cursive; font-size: 1.15em; color: #333; }
+.quiz-q-hint { font-size: 0.75em; color: #aaa; font-weight: 700; margin-top: 3px; }
+
+.quiz-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.quiz-opt {
+  background: #fff;
+  border: 2.5px solid #ddd;
+  border-radius: 13px;
+  padding: 10px 8px;
+  font-family: 'Fredoka One', cursive;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: all 0.18s;
+  text-align: center;
+  color: #444;
+}
+.quiz-opt:hover:not(:disabled) { border-color: #C8604A; color: #C8604A; transform: scale(1.04); }
+.quiz-opt.opt-ok { background: #d4edda; border-color: #5AAA78; color: #2A7A4A; animation: optBounce 0.4s; }
+.quiz-opt.opt-no { background: #fde0da; border-color: #C8604A; color: #C8604A; animation: optShake 0.4s; }
+.quiz-opt:disabled { cursor: default; }
+
+@keyframes optBounce { 0%{transform:scale(1)} 40%{transform:scale(1.1)} 100%{transform:scale(1)} }
+@keyframes optShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+.quiz-fb {
+  border-radius: 12px;
+  padding: 10px 13px;
+  text-align: center;
+  margin-top: 9px;
+  font-family: 'Fredoka One', cursive;
+  font-size: 0.95em;
+  animation: fadeUp 0.3s;
+}
+.quiz-fb.ok { background: #d4edda; color: #2A7A4A; border: 2px solid #5AAA78; }
+.quiz-fb.no { background: #fde0da; color: #C8604A; border: 2px solid #C8604A; }
+.quiz-next {
+  display: block; width: 100%; margin-top: 9px;
+  background: #C8604A; color: #fff; border: none;
+  border-radius: 50px; padding: 11px;
+  font-family: 'Fredoka One', cursive; font-size: 0.97em;
+  cursor: pointer; transition: all 0.18s;
+  box-shadow: 0 3px 12px rgba(200,96,74,0.35);
+}
+.quiz-next:hover { transform: scale(1.03); }
+
+.quiz-done {
+  background: linear-gradient(135deg, #FFF8E0, #FFF0B8);
+  border: 2.5px solid #FFD166;
+  border-radius: 20px;
+  padding: 18px;
+  text-align: center;
+}
+.quiz-done h3 { font-family: 'Fredoka One', cursive; color: #C89020; font-size: 1.2em; }
+.quiz-done .star-row { font-size: 1.8em; letter-spacing: 4px; margin: 8px 0; }
+
+@keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+/* ===== STARBURST ===== */
+.starburst {
+  position: absolute; pointer-events: none; z-index: 999;
+  font-size: 2em;
+  animation: burst 0.85s forwards;
+}
+@keyframes burst {
+  0%{transform:scale(0.2);opacity:1}
+  60%{transform:scale(1.4) translateY(-35px);opacity:1}
+  100%{transform:scale(1) translateY(-75px);opacity:0}
+}
+
+/* ===== INTRO ===== */
+#intro {
+  position: absolute; inset: 0; z-index: 200;
+  background: linear-gradient(160deg, #C8604A 0%, #B84838 45%, #D4705A 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 28px;
+  transition: opacity 0.6s, transform 0.6s;
+}
+#intro.gone { opacity:0; transform:scale(1.07); pointer-events:none; }
+.intro-flag { font-size: 4.5em; animation: floatY 2s ease-in-out infinite; }
+@keyframes floatY { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+.intro-h1 { font-family:'Fredoka One',cursive; color:#fff; font-size:2.6em; text-shadow:2px 3px 0 rgba(0,0,0,0.2); margin:12px 0 8px; }
+.intro-sub { color:rgba(255,255,255,0.88); font-size:1em; font-weight:700; max-width:300px; line-height:1.6; }
+.intro-cities { display:flex; gap:12px; margin:18px 0; flex-wrap:wrap; justify-content:center; }
+.intro-city {
+  background: rgba(255,255,255,0.18); border:2px solid rgba(255,255,255,0.35);
+  border-radius:16px; padding:10px 18px;
+  color:#fff; font-family:'Fredoka One',cursive; font-size:0.92em;
+}
+.intro-btn {
+  background: #FFD166; color: #5A2E10;
+  border: none; border-radius: 50px; padding: 14px 46px;
+  font-family: 'Fredoka One', cursive; font-size: 1.5em;
+  cursor: pointer; box-shadow: 0 5px 20px rgba(0,0,0,0.25);
+  transition: transform 0.2s;
+}
+.intro-btn:hover { transform: scale(1.06) rotate(-1deg); }
+</style>
+</head>
+<body>
+
+<div id="app-root">
+<!-- INTRO -->
+<div id="intro">
+  <div class="intro-flag">🇮🇹</div>
+  <h1 class="intro-h1">Italian Adventure!</h1>
+  <p class="intro-sub">Explore Rome & Florence and learn Italian along the way!</p>
+  <div class="intro-cities">
+    <div class="intro-city">🏛️ Roma<br><small>Italian Words</small></div>
+    <div class="intro-city">🌸 Firenze<br><small>Travel Phrases</small></div>
+  </div>
+  <button class="intro-btn" onclick="startApp()">Andiamo! ✈️</button>
+</div>
+
+<!-- HEADER -->
+<div class="app-header">
+  <div class="app-title">🇮🇹 Italian Adventure!</div>
+  <div class="score-strip">
+    <div class="score-pill">⭐ <span id="star-count">0</span></div>
+    <div class="score-pill">✅ <span id="done-count">0</span></div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="city-tabs">
+  <div class="city-tab active" id="tab-rome" onclick="switchCity('rome')">🏛️ Roma</div>
+  <div class="city-tab" id="tab-florence" onclick="switchCity('florence')">🌸 Firenze</div>
+</div>
+
+<!-- MAP STAGE -->
+<div class="map-stage">
+
+  <!-- ============================================================ ROME ============================================================ -->
+  <div class="city-view" id="view-rome">
+    <svg class="map-svg" viewBox="0 0 800 540" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <filter id="dropshadow" x="-15%" y="-15%" width="130%" height="130%">
+          <feDropShadow dx="1" dy="2" stdDeviation="3" flood-color="rgba(100,50,20,0.22)"/>
+        </filter>
+        <!-- subtle texture on background -->
+        <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+          <circle cx="10" cy="10" r="1" fill="rgba(180,100,70,0.1)"/>
+        </pattern>
+      </defs>
+
+      <!-- BG -->
+      <rect width="800" height="540" fill="#F2B5A0"/>
+      <rect width="800" height="540" fill="url(#dots)"/>
+
+      <!-- TITLE -->
+      <text x="700" y="65" font-family="Fredoka One, cursive" font-size="52" fill="rgba(255,255,255,0.85)" text-anchor="middle" letter-spacing="2">Roma</text>
+
+      <!-- Italian flag -->
+      <rect x="620" y="75" width="12" height="28" rx="1" fill="#009246"/>
+      <rect x="632" y="75" width="12" height="28" rx="1" fill="#fff"/>
+      <rect x="644" y="75" width="12" height="28" rx="1" fill="#CE2B37"/>
+      <rect x="619" y="72" width="2" height="36" fill="#8B6030"/>
+
+      <!-- CLOUDS -->
+      <g opacity="0.75">
+        <ellipse cx="90" cy="48" rx="40" ry="16" fill="var(--white-cloud)"/>
+        <ellipse cx="65" cy="54" rx="26" ry="13" fill="var(--white-cloud)"/>
+        <ellipse cx="118" cy="54" rx="28" ry="12" fill="var(--white-cloud)"/>
+      </g>
+      <g opacity="0.75">
+        <ellipse cx="360" cy="32" rx="34" ry="14" fill="var(--white-cloud)"/>
+        <ellipse cx="338" cy="38" rx="22" ry="11" fill="var(--white-cloud)"/>
+        <ellipse cx="386" cy="38" rx="24" ry="10" fill="var(--white-cloud)"/>
+      </g>
+      <!-- seagulls -->
+      <path d="M150,60 Q155,55 160,60" stroke="#E8A0888" stroke-width="1.5" fill="none" opacity="0.5"/>
+      <path d="M165,52 Q170,47 175,52" stroke="#E8A088" stroke-width="1.5" fill="none" opacity="0.5"/>
+      <path d="M500,45 Q505,40 510,45" stroke="#E8A088" stroke-width="1.5" fill="none" opacity="0.5"/>
+
+      <!-- ======= ROADS ======= -->
+      <!-- Main diagonal roads - cream colored like reference -->
+      <!-- Horizontal road center -->
+      <path d="M0,300 Q200,290 400,295 Q600,300 800,290" stroke="#F5ECD8" stroke-width="28" fill="none" stroke-linecap="round"/>
+      <path d="M0,300 Q200,290 400,295 Q600,300 800,290" stroke="#EAD9BE" stroke-width="30" fill="none" stroke-linecap="round"/>
+      <path d="M0,300 Q200,290 400,295 Q600,300 800,290" stroke="#F5ECD8" stroke-width="26" fill="none" stroke-linecap="round"/>
+      <!-- Diagonal road top-left to center -->
+      <path d="M0,180 Q150,220 300,280 Q400,310 500,360" stroke="#EAD9BE" stroke-width="30" fill="none" stroke-linecap="round"/>
+      <path d="M0,180 Q150,220 300,280 Q400,310 500,360" stroke="#F5ECD8" stroke-width="26" fill="none" stroke-linecap="round"/>
+      <!-- Road top right -->
+      <path d="M800,160 Q650,200 500,260 Q420,290 350,320" stroke="#EAD9BE" stroke-width="28" fill="none" stroke-linecap="round"/>
+      <path d="M800,160 Q650,200 500,260 Q420,290 350,320" stroke="#F5ECD8" stroke-width="24" fill="none" stroke-linecap="round"/>
+      <!-- Bottom roads -->
+      <path d="M100,540 Q200,460 350,400 Q450,360 550,380" stroke="#EAD9BE" stroke-width="26" fill="none" stroke-linecap="round"/>
+      <path d="M100,540 Q200,460 350,400 Q450,360 550,380" stroke="#F5ECD8" stroke-width="22" fill="none" stroke-linecap="round"/>
+      <path d="M700,540 Q680,470 620,420 Q570,380 500,360" stroke="#EAD9BE" stroke-width="24" fill="none" stroke-linecap="round"/>
+      <path d="M700,540 Q680,470 620,420 Q570,380 500,360" stroke="#F5ECD8" stroke-width="20" fill="none" stroke-linecap="round"/>
+
+      <!-- ======= FIUME TEVERE (river) ======= -->
+      <path d="M 160,0 Q 170,80 155,160 Q 140,240 130,310 Q 120,370 110,430 Q 100,490 95,540"
+            stroke="#7DBFCF" stroke-width="42" fill="none" stroke-linecap="round"/>
+      <path d="M 160,0 Q 170,80 155,160 Q 140,240 130,310 Q 120,370 110,430 Q 100,490 95,540"
+            stroke="#8CC8D8" stroke-width="36" fill="none" stroke-linecap="round"/>
+      <!-- river label -->
+      <text x="88" y="290" font-family="Fredoka One, cursive" font-size="13" fill="rgba(255,255,255,0.85)"
+            transform="rotate(-82, 88, 290)" text-anchor="middle">Fiume Tevere</text>
+
+      <!-- ======= DECORATIVE TREES ======= -->
+      <!-- scatter of round flat trees like reference -->
+      <g id="trees-rome">
+        <!-- top area trees -->
+        <circle cx="255" cy="110" r="13" fill="#7BBF5A" opacity="0.9"/>
+        <circle cx="270" cy="118" r="10" fill="#5A9A3A" opacity="0.85"/>
+        <circle cx="350" cy="95" r="12" fill="#7BBF5A" opacity="0.9"/>
+        <circle cx="365" cy="103" r="9" fill="#5A9A3A" opacity="0.85"/>
+        <circle cx="430" cy="120" r="11" fill="#7BBF5A" opacity="0.9"/>
+        <circle cx="445" cy="128" r="9" fill="#6AAA4A" opacity="0.85"/>
+        <circle cx="570" cy="140" r="12" fill="#7BBF5A" opacity="0.9"/>
+        <circle cx="585" cy="148" r="9" fill="#5A9A3A" opacity="0.85"/>
+        <!-- middle area -->
+        <circle cx="220" cy="230" r="11" fill="#7BBF5A" opacity="0.85"/>
+        <circle cx="235" cy="238" r="8" fill="#5A9A3A" opacity="0.8"/>
+        <circle cx="400" cy="210" r="11" fill="#7BBF5A" opacity="0.85"/>
+        <circle cx="415" cy="218" r="9" fill="#6AAA4A" opacity="0.8"/>
+        <circle cx="620" cy="220" r="10" fill="#7BBF5A" opacity="0.85"/>
+        <circle cx="633" cy="228" r="8" fill="#5A9A3A" opacity="0.8"/>
+        <!-- lower area -->
+        <circle cx="290" cy="380" r="10" fill="#7BBF5A" opacity="0.85"/>
+        <circle cx="305" cy="388" r="8" fill="#5A9A3A" opacity="0.8"/>
+        <circle cx="500" cy="420" r="11" fill="#7BBF5A" opacity="0.85"/>
+        <circle cx="515" cy="427" r="8" fill="#5A9A3A" opacity="0.8"/>
+        <circle cx="650" cy="380" r="10" fill="#7BBF5A" opacity="0.85"/>
+        <circle cx="663" cy="388" r="8" fill="#5A9A3A" opacity="0.8"/>
+      </g>
+
+      <!-- ======= FOOD / DECORATIVE ITEMS (like reference) ======= -->
+      <!-- pizza slice top right -->
+      <g transform="translate(530,70) rotate(-20)" opacity="0.9">
+        <polygon points="0,-30 22,10 -22,10" fill="#E8C068"/>
+        <circle cx="0" cy="-5" r="4" fill="#CE2B37"/>
+        <circle cx="8" cy="3" r="3" fill="#009246"/>
+        <circle cx="-8" cy="2" r="3" fill="#CE2B37"/>
+      </g>
+      <!-- gelato bottom right -->
+      <g transform="translate(740,440)" opacity="0.9">
+        <ellipse cx="0" cy="0" rx="14" ry="11" fill="#F5D0A8"/>
+        <ellipse cx="-4" cy="-8" rx="10" ry="9" fill="#F9E0C0"/>
+        <ellipse cx="4" cy="-16" rx="9" ry="8" fill="#F0C8A0"/>
+        <polygon points="0,10 14,10 7,36 -7,36 -14,10" fill="#F5E0C0"/>
+      </g>
+      <!-- pasta bowl -->
+      <g transform="translate(490,310)" opacity="0.85">
+        <ellipse cx="0" cy="8" rx="22" ry="8" fill="#D4A060"/>
+        <ellipse cx="0" cy="5" rx="22" ry="7" fill="#E8C080"/>
+        <path d="M-12,3 Q-6,-8 0,0 Q6,-8 12,3" stroke="#C8804A" stroke-width="2.5" fill="none"/>
+      </g>
+      <!-- wine bottle left bottom -->
+      <g transform="translate(55,420)" opacity="0.8">
+        <rect x="-5" y="-30" width="10" height="30" rx="3" fill="#6A3A2A"/>
+        <ellipse cx="0" cy="-30" rx="7" ry="5" fill="#5A2A1A"/>
+        <rect x="-3" y="-42" width="6" height="14" rx="2" fill="#5A2A1A"/>
+        <rect x="-1" y="-50" width="2" height="8" rx="1" fill="#3A1A0A"/>
+      </g>
+
+      <!-- Roman wolf (Romulus & Remus symbol) -->
+      <g transform="translate(720,310)" opacity="0.7">
+        <ellipse cx="0" cy="5" rx="20" ry="10" fill="#888"/>
+        <ellipse cx="-8" cy="-2" rx="12" ry="9" fill="#777"/>
+        <circle cx="-14" cy="-8" r="8" fill="#777"/>
+        <ellipse cx="-18" cy="-14" rx="4" ry="6" fill="#666"/>
+        <ellipse cx="-10" cy="-14" rx="3" ry="5" fill="#666"/>
+        <!-- "CIAO!" bubble -->
+        <rect x="-5" y="-38" width="34" height="16" rx="6" fill="white" opacity="0.9"/>
+        <text x="12" y="-27" font-family="Fredoka One, cursive" font-size="10" fill="#C8604A" text-anchor="middle">Ciao!</text>
+      </g>
+
+      <!-- ======= LANDMARK BUILDINGS ======= -->
+
+      <!-- 1. CASTEL SANT'ANGELO — top left (near river) -->
+      <g class="landmark-hit" id="hit-castel" onclick="openPanel('castel')" filter="url(#dropshadow)">
+        <!-- castle body -->
+        <rect x="32" y="148" width="72" height="44" rx="4" fill="#E8D0A8"/>
+        <!-- cylinder tower -->
+        <rect x="48" y="122" width="40" height="30" rx="20" fill="#D8C098"/>
+        <!-- battlements -->
+        <rect x="32" y="142" width="10" height="10" rx="2" fill="#C8B088"/>
+        <rect x="46" y="142" width="10" height="10" rx="2" fill="#C8B088"/>
+        <rect x="61" y="142" width="10" height="10" rx="2" fill="#C8B088"/>
+        <rect x="76" y="142" width="10" height="10" rx="2" fill="#C8B088"/>
+        <rect x="90" y="142" width="10" height="10" rx="2" fill="#C8B088"/>
+        <!-- door -->
+        <rect x="60" y="172" width="16" height="20" rx="3" fill="#8B6030" opacity="0.6"/>
+        <!-- red/pink accents -->
+        <rect x="38" y="158" width="16" height="10" rx="2" fill="#E89080" opacity="0.7"/>
+        <rect x="82" y="158" width="16" height="10" rx="2" fill="#E89080" opacity="0.7"/>
+        <!-- label -->
+        <rect x="14" y="197" width="108" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="68" y="210" font-family="Fredoka One, cursive" font-size="11.5" fill="#5A2E10" text-anchor="middle">Castel Sant'Angelo</text>
+        <!-- tap dot -->
+        <circle class="pulse-dot" cx="68" cy="120" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="68" cy="120" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="68" y="124" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+      <!-- 2. VILLA BORGHESE — top center -->
+      <g class="landmark-hit" id="hit-borghese" onclick="openPanel('borghese')" filter="url(#dropshadow)">
+        <!-- grand villa -->
+        <rect x="280" y="62" width="88" height="52" rx="4" fill="#F5E8D0"/>
+        <!-- upper story arches -->
+        <rect x="286" y="58" width="76" height="6" rx="2" fill="#E8D8B8"/>
+        <!-- red shutters/accents -->
+        <rect x="290" y="70" width="12" height="16" rx="2" fill="#E89080" opacity="0.8"/>
+        <rect x="308" y="70" width="12" height="16" rx="2" fill="#E89080" opacity="0.8"/>
+        <rect x="326" y="70" width="12" height="16" rx="2" fill="#E89080" opacity="0.8"/>
+        <rect x="344" y="70" width="12" height="16" rx="2" fill="#E89080" opacity="0.8"/>
+        <!-- door -->
+        <rect x="316" y="94" width="16" height="20" rx="3" fill="#C8A060" opacity="0.7"/>
+        <!-- pillars -->
+        <rect x="284" y="90" width="5" height="24" rx="2" fill="#E0C898"/>
+        <rect x="359" y="90" width="5" height="24" rx="2" fill="#E0C898"/>
+        <!-- top pediment -->
+        <polygon points="324,50 368,62 280,62" fill="#EAD8B0"/>
+        <!-- label -->
+        <rect x="274" y="117" width="100" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="324" y="130" font-family="Fredoka One, cursive" font-size="11.5" fill="#5A2E10" text-anchor="middle">Villa Borghese</text>
+        <circle class="pulse-dot" cx="324" cy="52" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="324" cy="52" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="324" y="56" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+      <!-- 3. PANTHEON — center left -->
+      <g class="landmark-hit" id="hit-pantheon" onclick="openPanel('pantheon')" filter="url(#dropshadow)">
+        <!-- portico columns -->
+        <rect x="222" y="220" width="80" height="8" rx="2" fill="#DCC898"/><!-- entablature -->
+        <rect x="228" y="225" width="5" height="30" rx="2" fill="#D8C498"/>
+        <rect x="239" y="225" width="5" height="30" rx="2" fill="#D8C498"/>
+        <rect x="250" y="225" width="5" height="30" rx="2" fill="#D8C498"/>
+        <rect x="261" y="225" width="5" height="30" rx="2" fill="#D8C498"/>
+        <rect x="272" y="225" width="5" height="30" rx="2" fill="#D8C498"/>
+        <rect x="283" y="225" width="5" height="30" rx="2" fill="#D8C498"/>
+        <rect x="293" y="225" width="5" height="30" rx="2" fill="#D8C498"/>
+        <!-- main body -->
+        <rect x="218" y="254" width="88" height="42" rx="4" fill="#E8D8B0"/>
+        <!-- dome hint -->
+        <path d="M218,254 Q262,228 306,254" fill="#DCC898"/>
+        <!-- pink accents on body -->
+        <rect x="230" y="262" width="14" height="10" rx="2" fill="#E89080" opacity="0.7"/>
+        <rect x="280" y="262" width="14" height="10" rx="2" fill="#E89080" opacity="0.7"/>
+        <!-- door oculus -->
+        <circle cx="262" cy="248" r="10" fill="#8B6030" opacity="0.4"/>
+        <!-- label -->
+        <rect x="226" y="298" width="76" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="264" y="311" font-family="Fredoka One, cursive" font-size="12" fill="#5A2E10" text-anchor="middle">Pantheon</text>
+        <circle class="pulse-dot" cx="262" cy="218" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="262" cy="218" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="262" y="222" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+      <!-- 4. PIAZZA NAVONA — center -->
+      <g class="landmark-hit" id="hit-navona" onclick="openPanel('navona')" filter="url(#dropshadow)">
+        <!-- oval plaza -->
+        <ellipse cx="390" cy="330" rx="56" ry="28" fill="#EDD8B0" opacity="0.85" stroke="#D8C498" stroke-width="2"/>
+        <!-- baroque church facade -->
+        <rect x="364" y="292" width="52" height="40" rx="4" fill="#F0E0C0"/>
+        <!-- twin towers -->
+        <rect x="362" y="278" width="14" height="28" rx="3" fill="#E8D0A8"/>
+        <ellipse cx="369" cy="278" rx="7" ry="5" fill="#D8C098"/>
+        <rect x="400" y="278" width="14" height="28" rx="3" fill="#E8D0A8"/>
+        <ellipse cx="407" cy="278" rx="7" ry="5" fill="#D8C098"/>
+        <!-- door + rose window -->
+        <rect x="383" y="318" width="14" height="14" rx="3" fill="#8B6030" opacity="0.55"/>
+        <circle cx="390" cy="308" r="6" fill="#C8A060" opacity="0.5"/>
+        <!-- fountain obelisk in plaza -->
+        <polygon points="390,315 394,330 386,330" fill="#C4A060"/>
+        <ellipse cx="390" cy="330" rx="10" ry="4" fill="#8CC8D8" opacity="0.7"/>
+        <!-- label -->
+        <rect x="350" y="360" width="82" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="391" y="373" font-family="Fredoka One, cursive" font-size="11.5" fill="#5A2E10" text-anchor="middle">Piazza Navona</text>
+        <circle class="pulse-dot" cx="390" cy="273" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="390" cy="273" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="390" y="277" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+      <!-- 5. FONTANA DI TREVI — center right -->
+      <g class="landmark-hit" id="hit-trevi" onclick="openPanel('trevi')" filter="url(#dropshadow)">
+        <!-- grand facade -->
+        <rect x="490" y="240" width="90" height="52" rx="4" fill="#F0E0C0"/>
+        <!-- top pediment -->
+        <polygon points="535,222 580,242 490,242" fill="#E8D4A8"/>
+        <!-- columns -->
+        <rect x="498" y="238" width="6" height="30" rx="2" fill="#DCC898"/>
+        <rect x="512" y="234" width="6" height="34" rx="2" fill="#DCC898"/>
+        <rect x="526" y="234" width="6" height="34" rx="2" fill="#DCC898"/>
+        <rect x="540" y="234" width="6" height="34" rx="2" fill="#DCC898"/>
+        <rect x="554" y="234" width="6" height="34" rx="2" fill="#DCC898"/>
+        <rect x="568" y="238" width="6" height="30" rx="2" fill="#DCC898"/>
+        <!-- basin -->
+        <ellipse cx="535" cy="295" rx="48" ry="18" fill="#8CC8D8" opacity="0.8"/>
+        <!-- water cascades -->
+        <path d="M520,278 Q528,268 535,278 Q542,268 550,278" stroke="#6AAEC0" stroke-width="2" fill="none"/>
+        <!-- pink accents -->
+        <rect x="502" y="252" width="10" height="12" rx="2" fill="#E89080" opacity="0.6"/>
+        <rect x="554" y="252" width="10" height="12" rx="2" fill="#E89080" opacity="0.6"/>
+        <!-- label -->
+        <rect x="483" y="315" width="104" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="535" y="328" font-family="Fredoka One, cursive" font-size="11.5" fill="#5A2E10" text-anchor="middle">Fontana di Trevi</text>
+        <circle class="pulse-dot" cx="535" cy="218" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="535" cy="218" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="535" y="222" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+      <!-- 6. BASILICA SAN PIETRO — bottom left -->
+      <g class="landmark-hit" id="hit-vatican" onclick="openPanel('vatican')" filter="url(#dropshadow)">
+        <!-- main body -->
+        <rect x="28" y="390" width="100" height="62" rx="4" fill="#F0E4C8"/>
+        <!-- twin towers / sides -->
+        <rect x="24" y="372" width="20" height="82" rx="3" fill="#E8D8B0"/>
+        <rect x="112" y="372" width="20" height="82" rx="3" fill="#E8D8B0"/>
+        <!-- big dome -->
+        <rect x="62" y="354" width="32" height="38" rx="4" fill="#E0D0A8"/>
+        <path d="M62,356 Q78,332 94,356" fill="#D8C898"/>
+        <ellipse cx="78" cy="356" rx="16" ry="6" fill="#C8B888"/>
+        <!-- lantern+cross -->
+        <rect x="76" y="326" width="4" height="10" rx="1" fill="#C8A060"/>
+        <line x1="72" y1="330" x2="84" y2="330" stroke="#C8A060" stroke-width="2"/>
+        <!-- colonnades hint -->
+        <path d="M10,454 Q50,445 78,447 Q106,445 146,454" stroke="#D8C898" stroke-width="3" fill="none" stroke-dasharray="5,4" opacity="0.8"/>
+        <!-- label -->
+        <rect x="22" y="455" width="112" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="78" y="468" font-family="Fredoka One, cursive" font-size="11" fill="#5A2E10" text-anchor="middle">Basilica San Pietro</text>
+        <circle class="pulse-dot" cx="78" cy="328" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="78" cy="328" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="78" y="332" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+      <!-- 7. ARCO DI COSTANTINO (near Colosseo) — bottom right -->
+      <g class="landmark-hit" id="hit-colosseo" onclick="openPanel('colosseo')" filter="url(#dropshadow)">
+        <!-- arch -->
+        <rect x="582" y="372" width="110" height="66" rx="4" fill="#DCC898"/>
+        <!-- three arches -->
+        <path d="M592,438 Q592,408 607,408 Q622,408 622,438" fill="#F2B5A0" stroke="#C8A878" stroke-width="1.5"/>
+        <path d="M626" font-family="Fredoka One"></path>
+        <path d="M626,438 Q626,400 641,400 Q656,400 656,438" fill="#F2B5A0" stroke="#C8A878" stroke-width="1.5"/>
+        <path d="M660,438 Q660,408 675,408 Q690,408 690,438" fill="#F2B5A0" stroke="#C8A878" stroke-width="1.5"/>
+        <!-- top band with inscription -->
+        <rect x="582" y="360" width="110" height="14" rx="2" fill="#E8D4A0"/>
+        <text x="637" y="371" font-family="Fredoka One, cursive" font-size="6.5" fill="#8B6030" text-anchor="middle" opacity="0.8">SENATUS POPULUS QUE</text>
+        <!-- columns on sides -->
+        <rect x="580" y="360" width="8" height="78" rx="3" fill="#D4BE88"/>
+        <rect x="694" y="360" width="8" height="78" rx="3" fill="#D4BE88"/>
+        <!-- label -->
+        <rect x="572" y="443" width="130" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="637" y="456" font-family="Fredoka One, cursive" font-size="11.5" fill="#5A2E10" text-anchor="middle">Arco di Costantino</text>
+        <circle class="pulse-dot" cx="637" cy="357" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="637" cy="357" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="637" y="361" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+      <!-- 8. FORO ROMANO — bottom center -->
+      <g class="landmark-hit" id="hit-foro" onclick="openPanel('foro')" filter="url(#dropshadow)">
+        <!-- columns row -->
+        <rect x="330" y="446" width="5" height="46" rx="2" fill="#DCC898"/>
+        <rect x="342" y="440" width="5" height="52" rx="2" fill="#D8C490"/>
+        <rect x="354" y="444" width="5" height="48" rx="2" fill="#DCC898"/>
+        <rect x="366" y="440" width="5" height="52" rx="2" fill="#D8C490"/>
+        <rect x="378" y="446" width="5" height="46" rx="2" fill="#DCC898"/>
+        <rect x="390" y="440" width="5" height="52" rx="2" fill="#D8C490"/>
+        <rect x="402" y="444" width="5" height="48" rx="2" fill="#DCC898"/>
+        <!-- entablature top -->
+        <rect x="326" y="440" width="84" height="7" rx="2" fill="#C8B880"/>
+        <!-- base -->
+        <rect x="324" y="490" width="88" height="8" rx="2" fill="#C8B880"/>
+        <!-- label -->
+        <rect x="320" y="500" width="96" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="368" y="513" font-family="Fredoka One, cursive" font-size="12" fill="#5A2E10" text-anchor="middle">Foro Romano</text>
+        <circle class="pulse-dot" cx="368" cy="438" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="368" cy="438" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="368" y="442" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+    </svg>
+
+    <!-- ROME PANEL -->
+    <div class="panel-wrap" id="wrap-rome">
+      <div class="panel-backdrop" id="backdrop-rome" onclick="closePanel('rome')"></div>
+      <div class="landmark-panel" id="panel-rome">
+        <div class="panel-handle"></div>
+        <button class="panel-close" onclick="closePanel('rome')">✕</button>
+        <div class="panel-scroll"><div id="panel-rome-body"></div></div>
+      </div>
+    </div>
+  </div><!-- end view-rome -->
+
+  <!-- ============================================================ FLORENCE ============================================================ -->
+  <div class="city-view hidden" id="view-florence">
+    <svg class="map-svg" viewBox="0 0 800 540" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <filter id="ds2" x="-15%" y="-15%" width="130%" height="130%">
+          <feDropShadow dx="1" dy="2" stdDeviation="3" flood-color="rgba(100,50,20,0.22)"/>
+        </filter>
+      </defs>
+
+      <!-- BG -->
+      <rect width="800" height="540" fill="#F2B5A0"/>
+      <rect width="800" height="540" fill="url(#dots)"/>
+
+      <!-- TITLE BANNER (like the reference orange ribbon) -->
+      <path d="M 30,30 Q 250,18 310,35 Q 250,52 30,50 Z" fill="#D4602A"/>
+      <path d="M 30,30 Q 250,18 310,35 Q 250,52 30,50 Z" fill="#C85020" opacity="0.4"/>
+      <text x="168" y="46" font-family="Fredoka One, cursive" font-size="26" fill="#FFE080" text-anchor="middle" letter-spacing="3">FLORENCE</text>
+      <!-- ribbon tails -->
+      <polygon points="30,30 8,38 30,50" fill="#A03A18"/>
+      <polygon points="310,35 332,30 310,35 332,40" fill="#A03A18"/>
+
+      <!-- CLOUDS -->
+      <g opacity="0.72">
+        <ellipse cx="620" cy="42" rx="38" ry="15" fill="var(--white-cloud)"/>
+        <ellipse cx="596" cy="49" rx="24" ry="12" fill="var(--white-cloud)"/>
+        <ellipse cx="646" cy="49" rx="26" ry="11" fill="var(--white-cloud)"/>
+      </g>
+      <g opacity="0.72">
+        <ellipse cx="140" cy="480" rx="30" ry="12" fill="var(--white-cloud)"/>
+        <ellipse cx="118" cy="486" rx="20" ry="10" fill="var(--white-cloud)"/>
+      </g>
+      <!-- little bird marks like reference -->
+      <path d="M640,100 Q645,95 650,100" stroke="#D89880" stroke-width="1.5" fill="none" opacity="0.6"/>
+      <path d="M660,88 Q665,83 670,88" stroke="#D89880" stroke-width="1.5" fill="none" opacity="0.6"/>
+      <path d="M400,70 Q405,65 410,70" stroke="#D89880" stroke-width="1.5" fill="none" opacity="0.6"/>
+      <path d="M250,460 Q255,455 260,460" stroke="#D89880" stroke-width="1.5" fill="none" opacity="0.6"/>
+      <path d="M600,430 Q605,425 610,430" stroke="#D89880" stroke-width="1.5" fill="none" opacity="0.6"/>
+
+      <!-- ======= ROADS ======= -->
+      <!-- Florence has organic blob roads like the reference -->
+      <path d="M0,240 Q120,230 260,250 Q360,265 440,255 Q560,240 680,258 Q740,265 800,255"
+            stroke="#EAD9BE" stroke-width="30" fill="none" stroke-linecap="round"/>
+      <path d="M0,240 Q120,230 260,250 Q360,265 440,255 Q560,240 680,258 Q740,265 800,255"
+            stroke="#F5ECD8" stroke-width="24" fill="none" stroke-linecap="round"/>
+
+      <path d="M200,0 Q220,100 240,200 Q255,265 260,340 Q265,420 260,540"
+            stroke="#EAD9BE" stroke-width="26" fill="none" stroke-linecap="round"/>
+      <path d="M200,0 Q220,100 240,200 Q255,265 260,340 Q265,420 260,540"
+            stroke="#F5ECD8" stroke-width="20" fill="none" stroke-linecap="round"/>
+
+      <path d="M800,380 Q660,360 520,375 Q420,385 330,370 Q240,358 160,370"
+            stroke="#EAD9BE" stroke-width="24" fill="none" stroke-linecap="round"/>
+      <path d="M800,380 Q660,360 520,375 Q420,385 330,370 Q240,358 160,370"
+            stroke="#F5ECD8" stroke-width="18" fill="none" stroke-linecap="round"/>
+
+      <path d="M450,0 Q460,80 470,160 Q478,220 475,290 Q472,360 480,430 Q486,490 490,540"
+            stroke="#EAD9BE" stroke-width="22" fill="none" stroke-linecap="round"/>
+      <path d="M450,0 Q460,80 470,160 Q478,220 475,290 Q472,360 480,430 Q486,490 490,540"
+            stroke="#F5ECD8" stroke-width="18" fill="none" stroke-linecap="round"/>
+
+      <!-- ARNO RIVER — crosses center horizontally -->
+      <path d="M 0,310 Q 150,298 300,308 Q 450,318 600,305 Q 700,296 800,302"
+            stroke="#6AAEC0" stroke-width="40" fill="none" stroke-linecap="round"/>
+      <path d="M 0,310 Q 150,298 300,308 Q 450,318 600,305 Q 700,296 800,302"
+            stroke="#8CC8D8" stroke-width="32" fill="none" stroke-linecap="round"/>
+      <!-- river label -->
+      <text x="400" y="316" font-family="Fredoka One, cursive" font-size="13" fill="rgba(255,255,255,0.85)" text-anchor="middle">Fiume Arno</text>
+
+      <!-- ======= TREES ======= -->
+      <g>
+        <!-- upper quadrant -->
+        <circle cx="80" cy="120" r="13" fill="#7BBF5A" opacity="0.88"/>
+        <circle cx="95" cy="128" r="10" fill="#5A9A3A" opacity="0.82"/>
+        <circle cx="145" cy="105" r="12" fill="#7BBF5A" opacity="0.88"/>
+        <circle cx="160" cy="113" r="9" fill="#6AAA4A" opacity="0.82"/>
+        <circle cx="350" cy="118" r="11" fill="#7BBF5A" opacity="0.88"/>
+        <circle cx="365" cy="125" r="9" fill="#5A9A3A" opacity="0.82"/>
+        <circle cx="540" cy="100" r="12" fill="#7BBF5A" opacity="0.88"/>
+        <circle cx="555" cy="108" r="9" fill="#5A9A3A" opacity="0.82"/>
+        <circle cx="700" cy="130" r="11" fill="#7BBF5A" opacity="0.88"/>
+        <circle cx="715" cy="138" r="8" fill="#6AAA4A" opacity="0.82"/>
+        <!-- lower quadrant -->
+        <circle cx="60" cy="390" r="12" fill="#7BBF5A" opacity="0.88"/>
+        <circle cx="75" cy="398" r="9" fill="#5A9A3A" opacity="0.82"/>
+        <circle cx="680" cy="160" r="11" fill="#7BBF5A" opacity="0.88"/>
+        <circle cx="695" cy="168" r="8" fill="#5A9A3A" opacity="0.82"/>
+        <circle cx="740" cy="410" r="11" fill="#7BBF5A" opacity="0.88"/>
+        <circle cx="753" cy="418" r="8" fill="#6AAA4A" opacity="0.82"/>
+        <circle cx="200" cy="450" r="10" fill="#7BBF5A" opacity="0.88"/>
+        <circle cx="215" cy="457" r="7" fill="#5A9A3A" opacity="0.82"/>
+        <circle cx="590" cy="445" r="11" fill="#7BBF5A" opacity="0.88"/>
+        <circle cx="603" cy="452" r="8" fill="#5A9A3A" opacity="0.82"/>
+      </g>
+
+      <!-- ======= FLORENCE LANDMARKS ======= -->
+
+      <!-- 1. PIAZZA SANTA MARIA NOVELLA — upper left -->
+      <g class="landmark-hit" id="hit-novella" onclick="openPanel('novella')" filter="url(#ds2)">
+        <!-- classical facade with round window -->
+        <rect x="30" y="148" width="86" height="62" rx="4" fill="#F0E0C8"/>
+        <!-- upper half with geometric marble patterns -->
+        <rect x="30" y="148" width="86" height="30" rx="4" fill="#EED8B8"/>
+        <!-- large round window -->
+        <circle cx="73" cy="163" r="11" fill="#8CC8D8" opacity="0.6" stroke="#C8A870" stroke-width="2"/>
+        <!-- side pilasters -->
+        <rect x="30" y="178" width="10" height="32" rx="2" fill="#E0C8A0"/>
+        <rect x="106" y="178" width="10" height="32" rx="2" fill="#E0C8A0"/>
+        <!-- arched entrance -->
+        <path d="M60,210 Q73,196 86,210 L86,210 L60,210" fill="#C8A870" opacity="0.5"/>
+        <rect x="60" y="210" width="26" height="10" rx="2" fill="#8B6030" opacity="0.45"/>
+        <!-- scroll volutes -->
+        <path d="M40,178 Q30,168 40,162" stroke="#D0B880" stroke-width="2" fill="none"/>
+        <path d="M106,178 Q116,168 106,162" stroke="#D0B880" stroke-width="2" fill="none"/>
+        <!-- label -->
+        <rect x="14" y="213" width="118" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="73" y="226" font-family="Fredoka One, cursive" font-size="10.5" fill="#5A2E10" text-anchor="middle">Piazza S.M. Novella</text>
+        <circle class="pulse-dot" cx="73" cy="146" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="73" cy="146" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="73" y="150" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+      <!-- 2. PALAZZO VECCHIO — upper center -->
+      <g class="landmark-hit" id="hit-palazzo" onclick="openPanel('palazzo')" filter="url(#ds2)">
+        <!-- tall tower -->
+        <rect x="298" y="96" width="18" height="76" rx="2" fill="#D4A040"/>
+        <!-- battlements on tower -->
+        <rect x="296" y="88" width="6" height="10" rx="1" fill="#C49030"/>
+        <rect x="304" y="88" width="6" height="10" rx="1" fill="#C49030"/>
+        <rect x="312" y="88" width="6" height="10" rx="1" fill="#C49030"/>
+        <!-- clock face -->
+        <circle cx="307" cy="116" r="7" fill="#F5E8C8" stroke="#C49030" stroke-width="1.5"/>
+        <!-- main building body -->
+        <rect x="270" y="172" width="74" height="56" rx="4" fill="#D8A848"/>
+        <!-- rusticated base -->
+        <rect x="270" y="208" width="74" height="20" rx="3" fill="#C89830"/>
+        <!-- windows -->
+        <rect x="278" y="182" width="12" height="16" rx="2" fill="#8B6030" opacity="0.5"/>
+        <rect x="298" y="182" width="12" height="16" rx="2" fill="#8B6030" opacity="0.5"/>
+        <rect x="318" y="182" width="12" height="16" rx="2" fill="#8B6030" opacity="0.5"/>
+        <!-- top battlements on building -->
+        <rect x="270" y="164" width="10" height="10" rx="1" fill="#C49030"/>
+        <rect x="284" y="164" width="10" height="10" rx="1" fill="#C49030"/>
+        <rect x="298" y="164" width="10" height="10" rx="1" fill="#C49030"/>
+        <rect x="312" y="164" width="10" height="10" rx="1" fill="#C49030"/>
+        <rect x="326" y="164" width="10" height="10" rx="1" fill="#C49030"/>
+        <rect x="340" y="164" width="10" height="10" rx="1" fill="#C49030"/>
+        <!-- label -->
+        <rect x="262" y="230" width="90" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="307" y="243" font-family="Fredoka One, cursive" font-size="12" fill="#5A2E10" text-anchor="middle">Palazzo Vecchio</text>
+        <circle class="pulse-dot" cx="307" cy="84" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="307" cy="84" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="307" y="88" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+      <!-- 3. SANTA MARIA DEL FIORE (Duomo) — upper right -->
+      <g class="landmark-hit" id="hit-duomo" onclick="openPanel('duomo')" filter="url(#ds2)">
+        <!-- nave -->
+        <rect x="512" y="178" width="120" height="46" rx="4" fill="#D8C8A0"/>
+        <!-- marble stripes -->
+        <rect x="512" y="185" width="120" height="3" fill="#F0E4C0" opacity="0.7"/>
+        <rect x="512" y="193" width="120" height="3" fill="#F0E4C0" opacity="0.7"/>
+        <rect x="512" y="201" width="120" height="3" fill="#F0E4C0" opacity="0.7"/>
+        <!-- Brunelleschi dome — RED/ORANGE -->
+        <path d="M572,130 Q572,116 586,108 Q600,116 600,130" fill="#CC4A2A"/>
+        <path d="M558,148 Q558,128 586,116 Q614,128 614,148" fill="#CC4A2A"/>
+        <ellipse cx="586" cy="148" rx="28" ry="8" fill="#B83818"/>
+        <!-- drum -->
+        <rect x="572" y="148" width="28" height="14" rx="3" fill="#D4B888"/>
+        <!-- lantern -->
+        <rect x="583" y="106" width="6" height="12" rx="2" fill="#B83818"/>
+        <line x1="580" y1="110" x2="592" y2="110" stroke="#B83818" stroke-width="2"/>
+        <!-- campanile (bell tower — slim) -->
+        <rect x="628" y="144" width="16" height="80" rx="2" fill="#E0C888"/>
+        <!-- campanile windows -->
+        <rect x="631" y="152" width="10" height="8" rx="2" fill="#8B6030" opacity="0.45"/>
+        <rect x="631" y="168" width="10" height="8" rx="2" fill="#8B6030" opacity="0.45"/>
+        <rect x="631" y="184" width="10" height="8" rx="2" fill="#8B6030" opacity="0.45"/>
+        <!-- label -->
+        <rect x="500" y="228" width="156" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="578" y="241" font-family="Fredoka One, cursive" font-size="11" fill="#5A2E10" text-anchor="middle">Santa Maria del Fiore</text>
+        <circle class="pulse-dot" cx="586" cy="103" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="586" cy="103" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="586" y="107" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+      <!-- 4. PONTE VECCHIO — center (over the Arno) -->
+      <g class="landmark-hit" id="hit-ponte" onclick="openPanel('ponte')" filter="url(#ds2)">
+        <!-- bridge deck -->
+        <rect x="310" y="296" width="160" height="20" rx="3" fill="#D4A040"/>
+        <!-- shops on bridge (little boxes on top) -->
+        <rect x="314" y="276" width="18" height="21" rx="2" fill="#E0B858"/>
+        <rect x="336" y="274" width="18" height="23" rx="2" fill="#D8A848"/>
+        <rect x="358" y="276" width="18" height="21" rx="2" fill="#E0B858"/>
+        <rect x="380" y="274" width="18" height="23" rx="2" fill="#D8A848"/>
+        <rect x="402" y="276" width="18" height="21" rx="2" fill="#E0B858"/>
+        <rect x="424" y="274" width="18" height="23" rx="2" fill="#D8A848"/>
+        <!-- windows on shops -->
+        <rect x="318" y="280" width="10" height="8" rx="1" fill="#8CC8D8" opacity="0.7"/>
+        <rect x="340" y="278" width="10" height="8" rx="1" fill="#8CC8D8" opacity="0.7"/>
+        <rect x="362" y="280" width="10" height="8" rx="1" fill="#8CC8D8" opacity="0.7"/>
+        <rect x="384" y="278" width="10" height="8" rx="1" fill="#8CC8D8" opacity="0.7"/>
+        <rect x="406" y="280" width="10" height="8" rx="1" fill="#8CC8D8" opacity="0.7"/>
+        <rect x="428" y="278" width="10" height="8" rx="1" fill="#8CC8D8" opacity="0.7"/>
+        <!-- arches underneath -->
+        <path d="M320,316 Q340,302 360,316" fill="#C49030" opacity="0.65"/>
+        <path d="M360,316 Q380,302 400,316" fill="#C49030" opacity="0.65"/>
+        <path d="M400,316 Q420,302 440,316" fill="#C49030" opacity="0.65"/>
+        <path d="M440,316 Q460,302 470,316" fill="#C49030" opacity="0.65"/>
+        <!-- label -->
+        <rect x="332" y="319" width="116" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="390" y="332" font-family="Fredoka One, cursive" font-size="12" fill="#5A2E10" text-anchor="middle">Ponte Vecchio</text>
+        <circle class="pulse-dot" cx="390" cy="274" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="390" cy="274" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="390" y="278" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+      <!-- 5. SANTA CROCE — center right -->
+      <g class="landmark-hit" id="hit-croce" onclick="openPanel('croce')" filter="url(#ds2)">
+        <!-- gothic facade with pointed arch, green/white like reference -->
+        <rect x="618" y="196" width="80" height="66" rx="4" fill="#C8D898"/>
+        <!-- marble panels top -->
+        <rect x="618" y="196" width="80" height="28" rx="4" fill="#D8E8A8"/>
+        <!-- pointed central window -->
+        <path d="M648,196 Q658,180 668,196" fill="#A8C878" stroke="#8AAA58" stroke-width="1.5"/>
+        <!-- rose window -->
+        <circle cx="658" cy="210" r="9" fill="#F5E8C8" stroke="#8AAA58" stroke-width="2"/>
+        <circle cx="658" cy="210" r="5" fill="#C8D898"/>
+        <!-- three pointed arches bottom -->
+        <path d="M625,262 Q633,246 641,262" fill="#B8C888" opacity="0.7"/>
+        <path d="M641,262 Q650,244 659,262" fill="#A8B878" opacity="0.7"/>
+        <path d="M659,262 Q667,246 675,262" fill="#B8C888" opacity="0.7"/>
+        <!-- side pinnacles -->
+        <polygon points="618,220 622,196 626,220" fill="#A0B870" opacity="0.8"/>
+        <polygon points="690,220 694,196 698,220" fill="#A0B870" opacity="0.8"/>
+        <!-- label -->
+        <rect x="608" y="265" width="100" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="658" y="278" font-family="Fredoka One, cursive" font-size="12" fill="#5A2E10" text-anchor="middle">Santa Croce</text>
+        <circle class="pulse-dot" cx="658" cy="176" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="658" cy="176" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="658" y="180" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+      <!-- 6. PALAZZO PITTI — bottom center -->
+      <g class="landmark-hit" id="hit-pitti" onclick="openPanel('pitti')" filter="url(#ds2)">
+        <!-- massive rusticated facade -->
+        <rect x="298" y="410" width="150" height="68" rx="4" fill="#D4A850"/>
+        <!-- rusticated stone texture rows -->
+        <rect x="298" y="422" width="150" height="4" fill="#C49838" opacity="0.5"/>
+        <rect x="298" y="436" width="150" height="4" fill="#C49838" opacity="0.5"/>
+        <rect x="298" y="450" width="150" height="4" fill="#C49838" opacity="0.5"/>
+        <rect x="298" y="464" width="150" height="4" fill="#C49838" opacity="0.5"/>
+        <!-- arched windows x 7 -->
+        <path d="M306,428 Q313,418 320,428 L320,444 L306,444 Z" fill="#8B6030" opacity="0.45"/>
+        <path d="M324,428 Q331,418 338,428 L338,444 L324,444 Z" fill="#8B6030" opacity="0.45"/>
+        <path d="M342,428 Q349,418 356,428 L356,444 L342,444 Z" fill="#8B6030" opacity="0.45"/>
+        <path d="M360,428 Q367,418 374,428 L374,444 L360,444 Z" fill="#8B6030" opacity="0.45"/>
+        <path d="M378,428 Q385,418 392,428 L392,444 L378,444 Z" fill="#8B6030" opacity="0.45"/>
+        <path d="M396,428 Q403,418 410,428 L410,444 L396,444 Z" fill="#8B6030" opacity="0.45"/>
+        <path d="M414,428 Q421,418 428,428 L428,444 L414,444 Z" fill="#8B6030" opacity="0.45"/>
+        <!-- label -->
+        <rect x="304" y="481" width="138" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="373" y="494" font-family="Fredoka One, cursive" font-size="12" fill="#5A2E10" text-anchor="middle">Palazzo Pitti</text>
+        <circle class="pulse-dot" cx="373" cy="408" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="373" cy="408" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="373" y="412" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+      <!-- 7. SANTO SPIRITO — lower left -->
+      <g class="landmark-hit" id="hit-spirito" onclick="openPanel('spirito')" filter="url(#ds2)">
+        <!-- baroque church simple facade -->
+        <rect x="44" y="370" width="82" height="62" rx="4" fill="#EED8B0"/>
+        <!-- top pediment -->
+        <polygon points="85,350 126,372 44,372" fill="#E4CCA0"/>
+        <!-- central round window -->
+        <circle cx="85" cy="388" r="11" fill="#8CC8D8" opacity="0.55" stroke="#C8A870" stroke-width="2"/>
+        <!-- pilasters -->
+        <rect x="44" y="372" width="10" height="60" rx="2" fill="#E0CCA0"/>
+        <rect x="116" y="372" width="10" height="60" rx="2" fill="#E0CCA0"/>
+        <!-- door arch -->
+        <path d="M73,432 Q85,418 97,432 L97,432 L73,432" fill="#C8A870" opacity="0.5"/>
+        <rect x="73" y="422" width="24" height="12" rx="2" fill="#8B6030" opacity="0.4"/>
+        <!-- label -->
+        <rect x="34" y="435" width="102" height="18" rx="5" fill="rgba(255,255,255,0.82)"/>
+        <text x="85" y="448" font-family="Fredoka One, cursive" font-size="12" fill="#5A2E10" text-anchor="middle">Santo Spirito</text>
+        <circle class="pulse-dot" cx="85" cy="348" r="7" fill="#C8604A"/>
+        <circle class="visited-dot" cx="85" cy="348" r="7" fill="#FFD166"/>
+        <text class="visited-dot" x="85" y="352" text-anchor="middle" font-size="9">✓</text>
+      </g>
+
+    </svg>
+
+    <!-- FLORENCE PANEL -->
+    <div class="panel-wrap" id="wrap-florence">
+      <div class="panel-backdrop" id="backdrop-florence" onclick="closePanel('florence')"></div>
+      <div class="landmark-panel" id="panel-florence">
+        <div class="panel-handle"></div>
+        <button class="panel-close" onclick="closePanel('florence')">✕</button>
+        <div class="panel-scroll"><div id="panel-florence-body"></div></div>
+      </div>
+    </div>
+  </div><!-- end view-florence -->
+
+</div><!-- end map-stage -->
+</div><!-- end app-root -->
+
+<script>
+// ===================================================
+// DATA
+// ===================================================
+const ROME = {
+  castel:  { name:"Castel Sant'Angelo", emoji:"🏰", desc:"A mighty round castle guarding the Tiber!", color:"#9B59B6",
+    words:[
+      {ita:"Ciao",        eng:"Hello / Goodbye",    emoji:"👋", pron:"chow"},
+      {ita:"Grazie",      eng:"Thank you",           emoji:"🙏", pron:"grat-see-eh"},
+      {ita:"Per favore",  eng:"Please",              emoji:"🌟", pron:"pair fa-vo-reh"},
+      {ita:"Prego",       eng:"You're welcome",      emoji:"😊", pron:"preh-go"},
+      {ita:"Scusi",       eng:"Excuse me",           emoji:"🤝", pron:"skoo-zee"},
+    ]},
+  borghese:{ name:"Villa Borghese", emoji:"🌳", desc:"A grand villa in Rome's biggest park!", color:"#E91E8C",
+    words:[
+      {ita:"Parco",       eng:"Park",                emoji:"🌳", pron:"par-ko"},
+      {ita:"Fiore",       eng:"Flower",              emoji:"🌸", pron:"fyo-reh"},
+      {ita:"Verde",       eng:"Green",               emoji:"🌿", pron:"vair-deh"},
+      {ita:"Albero",      eng:"Tree",                emoji:"🌲", pron:"al-beh-ro"},
+      {ita:"Felice",      eng:"Happy",               emoji:"😄", pron:"feh-lee-cheh"},
+    ]},
+  pantheon:{ name:"Pantheon", emoji:"⛩️", desc:"A 2,000-year-old temple with an amazing dome!", color:"#FF6B35",
+    words:[
+      {ita:"Buongiorno",  eng:"Good morning",        emoji:"🌅", pron:"bwon-jor-no"},
+      {ita:"Buona sera",  eng:"Good evening",        emoji:"🌆", pron:"bwona seh-ra"},
+      {ita:"Buona notte", eng:"Good night",          emoji:"🌙", pron:"bwona not-teh"},
+      {ita:"Arrivederci", eng:"Goodbye",             emoji:"👋", pron:"ah-ree-veh-der-chee"},
+      {ita:"Sì",          eng:"Yes",                 emoji:"✅", pron:"see"},
+    ]},
+  navona:  { name:"Piazza Navona", emoji:"🗽", desc:"A beautiful oval square with baroque fountains!", color:"#FF9500",
+    words:[
+      {ita:"Piazza",      eng:"Square / Plaza",      emoji:"🏙️", pron:"pyat-sa"},
+      {ita:"Gelato",      eng:"Ice cream",           emoji:"🍦", pron:"jeh-la-toh"},
+      {ita:"Musica",      eng:"Music",               emoji:"🎵", pron:"moo-see-ka"},
+      {ita:"Gente",       eng:"People",              emoji:"👨‍👩‍👧", pron:"jen-teh"},
+      {ita:"Bello",       eng:"Beautiful",           emoji:"😍", pron:"bel-lo"},
+    ]},
+  trevi:   { name:"Fontana di Trevi", emoji:"⛲", desc:"Throw a coin and make a wish!", color:"#4ECDC4",
+    words:[
+      {ita:"Acqua",       eng:"Water",               emoji:"💧", pron:"ak-wa"},
+      {ita:"Moneta",      eng:"Coin",                emoji:"🪙", pron:"mo-neh-ta"},
+      {ita:"Desiderio",   eng:"Wish",                emoji:"⭐", pron:"deh-see-deh-ryo"},
+      {ita:"Fontana",     eng:"Fountain",            emoji:"⛲", pron:"fon-ta-na"},
+      {ita:"Bellissimo",  eng:"Very beautiful",      emoji:"✨", pron:"bel-lis-see-mo"},
+    ]},
+  vatican: { name:"Basilica San Pietro", emoji:"⛪", desc:"The most famous church in the world!", color:"#009246",
+    words:[
+      {ita:"Chiesa",      eng:"Church",              emoji:"⛪", pron:"kyeh-za"},
+      {ita:"Arte",        eng:"Art",                 emoji:"🖼️", pron:"ar-teh"},
+      {ita:"Grande",      eng:"Big / Great",         emoji:"🦁", pron:"gran-deh"},
+      {ita:"Antico",      eng:"Ancient / Old",       emoji:"⏳", pron:"an-tee-ko"},
+      {ita:"Oro",         eng:"Gold",                emoji:"🌟", pron:"o-ro"},
+    ]},
+  colosseo:{ name:"Arco di Costantino", emoji:"🏛️", desc:"A triumphal arch next to the Colosseo!", color:"#CE2B37",
+    words:[
+      {ita:"No",          eng:"No",                  emoji:"❌", pron:"noh"},
+      {ita:"Piccolo",     eng:"Small / Little",      emoji:"🐭", pron:"pee-ko-lo"},
+      {ita:"Pizza",       eng:"Pizza",               emoji:"🍕", pron:"peet-sa"},
+      {ita:"Amico",       eng:"Friend",              emoji:"🫂", pron:"ah-mee-ko"},
+      {ita:"Sole",        eng:"Sun",                 emoji:"☀️", pron:"so-leh"},
+    ]},
+  foro:    { name:"Foro Romano", emoji:"🏺", desc:"Ruins of the ancient heart of Rome!", color:"#8B6030",
+    words:[
+      {ita:"Vecchio",     eng:"Old",                 emoji:"⏳", pron:"vek-yo"},
+      {ita:"Pietra",      eng:"Stone",               emoji:"🪨", pron:"pyeh-tra"},
+      {ita:"Storia",      eng:"History",             emoji:"📖", pron:"sto-rya"},
+      {ita:"Roma",        eng:"Rome",                emoji:"🏛️", pron:"ro-ma"},
+      {ita:"Magnifico",   eng:"Magnificent",         emoji:"🤩", pron:"man-yee-fee-ko"},
+    ]},
+};
+
+const FLORENCE = {
+  novella: { name:"Piazza S.M. Novella", emoji:"🏛️", desc:"A grand marble church with geometric designs!", color:"#4ECDC4",
+    phrases:[
+      {ita:"Dov'è il bagno?",          eng:"Where is the bathroom?",   emoji:"🚽", pron:"do-veh il ban-yo"},
+      {ita:"Parli inglese?",            eng:"Do you speak English?",    emoji:"🇬🇧", pron:"par-lee een-gleh-zeh"},
+      {ita:"Puoi aiutarmi?",            eng:"Can you help me?",         emoji:"🆘", pron:"pwo-ee ay-oo-tar-mee"},
+      {ita:"Non capisco",               eng:"I don't understand",       emoji:"😕", pron:"non ka-pees-ko"},
+    ]},
+  palazzo: { name:"Palazzo Vecchio", emoji:"🏰", desc:"Florence's city hall with a tall tower!", color:"#FF9500",
+    phrases:[
+      {ita:"Dov'è la fermata?",         eng:"Where is the bus stop?",   emoji:"🚌", pron:"do-veh la fair-ma-ta"},
+      {ita:"Chiami un taxi, per favore",eng:"Please call a taxi",       emoji:"🚕", pron:"kya-mee oon taks-ee"},
+      {ita:"Vorrei andare a…",          eng:"I'd like to go to…",       emoji:"🗺️", pron:"vor-ray an-da-reh a"},
+      {ita:"Mi sono perso/a",           eng:"I am lost",                emoji:"😟", pron:"mee so-no pair-so/a"},
+    ]},
+  duomo:   { name:"Santa Maria del Fiore", emoji:"⛪", desc:"Brunelleschi's famous red dome!", color:"#CC4A2A",
+    phrases:[
+      {ita:"Quanto costa?",             eng:"How much does it cost?",   emoji:"💰", pron:"kwan-to kos-ta"},
+      {ita:"Un biglietto, per favore",  eng:"One ticket, please",       emoji:"🎫", pron:"oon beel-yet-to pair fa-vo-reh"},
+      {ita:"A che ora apre?",           eng:"What time does it open?",  emoji:"🕘", pron:"a keh o-ra a-preh"},
+      {ita:"Posso fare una foto?",      eng:"Can I take a photo?",      emoji:"📸", pron:"pos-so fa-reh oo-na fo-to"},
+    ]},
+  ponte:   { name:"Ponte Vecchio", emoji:"🌉", desc:"The old bridge covered in jewellery shops!", color:"#C8604A",
+    phrases:[
+      {ita:"Vorrei comprare questo",    eng:"I'd like to buy this",     emoji:"🛍️", pron:"vor-ray kom-pra-reh kwes-to"},
+      {ita:"Accettate carte?",          eng:"Do you accept cards?",     emoji:"💳", pron:"a-chet-ta-teh kar-teh"},
+      {ita:"È troppo caro",             eng:"It's too expensive",       emoji:"😬", pron:"eh trop-po ka-ro"},
+      {ita:"Posso pagare in contanti?", eng:"Can I pay in cash?",       emoji:"💵", pron:"pos-so pa-ga-reh in kon-tan-tee"},
+    ]},
+  croce:   { name:"Santa Croce", emoji:"⛪", desc:"A Gothic church full of famous Florentines!", color:"#7BBF5A",
+    phrases:[
+      {ita:"Buongiorno! Come stai?",    eng:"Good morning! How are you?",emoji:"☀️", pron:"bwon-jor-no ko-meh sty"},
+      {ita:"Sto bene, grazie!",         eng:"I'm well, thank you!",     emoji:"😄", pron:"sto beh-neh, grat-see-eh"},
+      {ita:"Come ti chiami?",           eng:"What is your name?",       emoji:"👤", pron:"ko-meh tee kya-mee"},
+      {ita:"Mi chiamo…",                eng:"My name is…",              emoji:"🙋", pron:"mee kya-mo"},
+    ]},
+  pitti:   { name:"Palazzo Pitti", emoji:"🏛️", desc:"A massive Renaissance palace full of treasures!", color:"#9B59B6",
+    phrases:[
+      {ita:"Un tavolo per due, per favore",eng:"A table for two, please", emoji:"🍽️", pron:"oon ta-vo-lo pair doo-eh"},
+      {ita:"Il conto, per favore",      eng:"The bill, please",         emoji:"🧾", pron:"eel kon-to, pair fa-vo-reh"},
+      {ita:"È delizioso!",              eng:"It's delicious!",          emoji:"😋", pron:"eh deh-lee-tsyo-zo"},
+      {ita:"Sono allergico/a a…",       eng:"I'm allergic to…",        emoji:"⚠️", pron:"so-no al-lair-jee-ko/a a"},
+    ]},
+  spirito: { name:"Santo Spirito", emoji:"🕊️", desc:"A peaceful Renaissance church in Oltrarno!", color:"#009246",
+    phrases:[
+      {ita:"Che vista meravigliosa!",   eng:"What a wonderful view!",   emoji:"😍", pron:"keh vees-ta meh-ra-vil-yo-za"},
+      {ita:"Quanto è lontano?",         eng:"How far is it?",           emoji:"📏", pron:"kwan-to eh lon-ta-no"},
+      {ita:"Posso sedermi qui?",        eng:"Can I sit here?",          emoji:"🪑", pron:"pos-so seh-dair-mee kwee"},
+      {ita:"Avete una mappa?",          eng:"Do you have a map?",       emoji:"🗺️", pron:"a-veh-teh oo-na map-pa"},
+    ]},
+};
+
+// ===================================================
+// STATE
+// ===================================================
+let S = {
+  city: 'rome',
+  stars: 0,
+  learned: {},       // id -> Set of indices
+  quizDone: new Set(),
+  quizState: null,   // {id, shuffled, qIdx, answered, correct, wrongPick}
+  openId: null,
+};
+
+// ===================================================
+// SPEECH
+// ===================================================
+// ===================================================
+// SPEECH — iOS compatible
+// iOS Safari ignores utterance.lang unless you also
+// explicitly set utterance.voice to a matching voice.
+// We pre-load voices and pick the best Italian one.
+// ===================================================
+let _italianVoice = null;
+
+function loadItalianVoice() {
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return;
+
+  // Prefer voices with 'it' in lang, ranked by quality:
+  // 1. Exact it-IT named voices (e.g. "Alice", "Federica" on iOS)
+  // 2. Any it-IT voice
+  // 3. Any voice whose lang starts with 'it'
+  const itVoices = voices.filter(v => v.lang.toLowerCase().startsWith('it'));
+
+  // iOS premium voices are typically not 'localService' and have proper names
+  const premium = itVoices.find(v => !v.localService);
+  const local   = itVoices.find(v => v.localService);
+  _italianVoice = premium || local || itVoices[0] || null;
+}
+
+// Voices load asynchronously — especially on iOS
+if (window.speechSynthesis) {
+  loadItalianVoice();
+  window.speechSynthesis.onvoiceschanged = loadItalianVoice;
+}
+
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang  = 'it-IT';
+  u.rate  = 0.82;
+  u.pitch = 1.1;
+
+  // Explicitly assign Italian voice — critical for iOS
+  if (_italianVoice) {
+    u.voice = _italianVoice;
+  } else {
+    // Voices may not be loaded yet — try once more then speak
+    const voices = window.speechSynthesis.getVoices();
+    const itVoice = voices.find(v => v.lang.toLowerCase().startsWith('it'));
+    if (itVoice) u.voice = itVoice;
+  }
+
+  window.speechSynthesis.speak(u);
+}
+
+// ===================================================
+// INTRO
+// ===================================================
+function startApp() {
+  document.getElementById('intro').classList.add('gone');
+  setTimeout(()=>document.getElementById('intro').remove(), 700);
+}
+
+// ===================================================
+// CITY SWITCH
+// ===================================================
+function switchCity(c) {
+  S.city = c;
+  S.openId = null;
+  document.getElementById('view-rome').classList.toggle('hidden', c!=='rome');
+  document.getElementById('view-florence').classList.toggle('hidden', c!=='florence');
+  document.getElementById('tab-rome').className = 'city-tab'+(c==='rome'?' active':'');
+  document.getElementById('tab-florence').className = 'city-tab'+(c==='florence'?' active':'');
+  closePanel(c==='rome'?'florence':'rome');
+}
+
+// ===================================================
+// PANEL
+// ===================================================
+function openPanel(id) {
+  S.openId = id;
+  const city = S.city;
+  const data = city==='rome' ? ROME[id] : FLORENCE[id];
+  if (!S.learned[id]) S.learned[id] = new Set();
+
+  // Reset quiz state if switching landmark
+  if (!S.quizState || S.quizState.id !== id) S.quizState = null;
+
+  const bodyEl = document.getElementById('panel-'+city+'-body');
+  bodyEl.innerHTML = buildContent(id, data, city);
+
+  document.getElementById('backdrop-'+city).classList.add('open');
+  document.getElementById('panel-'+city).classList.add('open');
+}
+
+function closePanel(city) {
+  document.getElementById('backdrop-'+city).classList.remove('open');
+  document.getElementById('panel-'+city).classList.remove('open');
+}
+
+function buildContent(id, data, city) {
+  const isRome = city === 'rome';
+  const items = isRome ? data.words : data.phrases;
+  const learned = S.learned[id] || new Set();
+  const allLearned = learned.size >= items.length;
+
+  const tilesHtml = items.map((item, i) => {
+    const isDone = learned.has(i);
+    const safeIta = item.ita.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+    if (!isRome) {
+      return `<div class="word-tile phrase-tile${isDone?' learned':''}" onclick="learnItem('${id}',${i})">
+        <span class="tile-emoji">${item.emoji}</span>
+        <div class="tile-info">
+          <span class="tile-ita">${item.ita}</span>
+          <span class="tile-eng">${item.eng}</span>
+          <span class="tile-pron">Say: "${item.pron}"</span>
+          <button class="tile-hear" onclick="event.stopPropagation();speak('${safeIta}')">🔊 Listen</button>
+        </div>
+      </div>`;
+    }
+    return `<div class="word-tile${isDone?' learned':''}" onclick="learnItem('${id}',${i})">
+      <span class="tile-emoji">${item.emoji}</span>
+      <span class="tile-ita">${item.ita}</span>
+      <span class="tile-eng">${item.eng}</span>
+      <span class="tile-pron">Say: "${item.pron}"</span>
+      <button class="tile-hear" onclick="event.stopPropagation();speak('${safeIta}')">🔊 Listen</button>
+    </div>`;
+  }).join('');
+
+  const quizSection = allLearned
+    ? buildQuizSection(id, data, city)
+    : `<div class="progress-hint">Tap all ${items.length} ${isRome?'words':'phrases'} to unlock the quiz! (${learned.size}/${items.length} done) 🎯</div>`;
+
+  return `
+    <div class="panel-header">
+      <span class="panel-icon">${data.emoji}</span>
+      <div>
+        <div class="panel-name" style="color:${data.color}">${data.name}</div>
+        <div class="panel-desc">${data.desc}</div>
+      </div>
+    </div>
+    <div class="words-grid">${tilesHtml}</div>
+    ${quizSection}`;
+}
+
+function buildQuizSection(id, data, city) {
+  const isRome = city === 'rome';
+  const items = isRome ? data.words : data.phrases;
+
+  // init quiz state
+  if (!S.quizState || S.quizState.id !== id) {
+    S.quizState = { id, shuffled:[...items].sort(()=>Math.random()-0.5), qIdx:0, answered:false, correct:null, wrongPick:null };
+  }
+  const q = S.quizState;
+
+  // Quiz complete
+  if (q.qIdx >= q.shuffled.length) {
+    if (!S.quizDone.has(id)) {
+      S.quizDone.add(id);
+      addStars(3);
+      const pin = document.getElementById('hit-'+id);
+      if (pin) pin.classList.add('done');
+      updateHeader();
+    }
+    return `<div class="quiz-done">
+      <div style="font-size:2.5em">🏆</div>
+      <h3>Bravissimo! Quiz Complete!</h3>
+      <div class="star-row">⭐⭐⭐</div>
+      <p style="color:#8A6040;font-weight:700;font-size:0.9em">You earned 3 bonus stars!</p>
+      <button class="quiz-next" onclick="resetQuiz('${id}')" style="margin-top:10px;background:#C89020;">🔁 Play Again</button>
+    </div>`;
+  }
+
+  const word = q.shuffled[q.qIdx];
+  const quizType = Math.random() > 0.5 ? 'ita' : 'eng';
+  const qText = quizType === 'ita'
+    ? `What does "<strong>${word.ita}</strong>" mean?`
+    : `How do you say "<strong>${word.eng}</strong>" in Italian?`;
+
+  const others = items.filter(w=>w.ita!==word.ita).sort(()=>Math.random()-0.5).slice(0,3);
+  const opts = [...others, word].sort(()=>Math.random()-0.5);
+
+  const optsHtml = opts.map(opt=>{
+    const label = quizType === 'ita' ? opt.eng : opt.ita;
+    const isCorrect = opt.ita === word.ita;
+    let cls = 'quiz-opt';
+    if (q.answered) {
+      if (isCorrect) cls += ' opt-ok';
+      else if (q.wrongPick === opt.ita) cls += ' opt-no';
+    }
+    const safeIta = opt.ita.replace(/'/g,"\\'");
+    return `<button class="${cls}" ${q.answered?'disabled':''}
+      onclick="answerQuiz('${id}',${isCorrect},'${word.ita.replace(/'/g,"\\'")}','${safeIta}')">
+      ${label}</button>`;
+  }).join('');
+
+  let feedback = '';
+  if (q.answered) {
+    feedback = q.correct
+      ? `<div class="quiz-fb ok">🎉 Esatto! That's right! ⭐</div>`
+      : `<div class="quiz-fb no">😅 Not quite — <strong>${word.ita}</strong> means <strong>${word.eng}</strong></div>`;
+  }
+  const nextLabel = q.qIdx < q.shuffled.length-1 ? 'Next →' : '🏆 Finish!';
+
+  return `<div class="quiz-box">
+    <h3>🎮 Quiz Time! (${q.qIdx+1}/${q.shuffled.length})</h3>
+    <div class="quiz-q">
+      <span class="quiz-q-emoji">${word.emoji}</span>
+      <div class="quiz-q-text">${qText}</div>
+      ${quizType==='eng'?`<div class="quiz-q-hint"><button class="tile-hear" onclick="speak('${word.ita.replace(/'/g,"\\'")}')">🔊 Hear it</button></div>`:''}
+    </div>
+    <div class="quiz-opts">${optsHtml}</div>
+    ${feedback}
+    ${q.answered?`<button class="quiz-next" onclick="nextQuiz('${id}')">${nextLabel}</button>`:''}
+  </div>`;
+}
+
+// ===================================================
+// LEARN
+// ===================================================
+function learnItem(id, idx) {
+  const city = S.city;
+  const data = city==='rome' ? ROME[id] : FLORENCE[id];
+  const items = city==='rome' ? data.words : data.phrases;
+  speak(items[idx].ita);
+  if (!S.learned[id]) S.learned[id] = new Set();
+  const isNew = !S.learned[id].has(idx);
+  S.learned[id].add(idx);
+  if (isNew) { addStars(1); burstStar(); }
+  refreshPanel(id);
+}
+
+function answerQuiz(id, isCorrect, ita, picked) {
+  if (!S.quizState || S.quizState.answered) return;
+  S.quizState.answered = true;
+  S.quizState.correct = isCorrect;
+  S.quizState.wrongPick = isCorrect ? null : picked;
+  if (isCorrect) { addStars(1); burstStar(); speak(ita); }
+  else speak("Riprova!");
+  refreshPanel(id);
+}
+
+function nextQuiz(id) {
+  if (!S.quizState) return;
+  S.quizState.qIdx++;
+  S.quizState.answered = false;
+  S.quizState.correct = null;
+  S.quizState.wrongPick = null;
+  refreshPanel(id);
+}
+
+function resetQuiz(id) {
+  S.quizState = null;
+  refreshPanel(id);
+}
+
+function refreshPanel(id) {
+  const city = S.city;
+  const data = city==='rome' ? ROME[id] : FLORENCE[id];
+  document.getElementById('panel-'+city+'-body').innerHTML = buildContent(id, data, city);
+}
+
+// ===================================================
+// STARS
+// ===================================================
+function addStars(n) {
+  S.stars += n;
+  updateHeader();
+}
+function updateHeader() {
+  document.getElementById('star-count').textContent = S.stars;
+  document.getElementById('done-count').textContent = S.quizDone.size + '/' + (Object.keys(ROME).length + Object.keys(FLORENCE).length);
+}
+function burstStar() {
+  const el = document.createElement('div');
+  el.className = 'starburst';
+  el.textContent = '⭐';
+  el.style.left = (50 + Math.random()*160)+'px';
+  el.style.top = '54px';
+  const root = document.getElementById('app-root') || document.body;
+  root.appendChild(el);
+  setTimeout(()=>el.remove(), 950);
+}
+
+updateHeader();
+
+// ===================================================
+// RESPONSIVE SCALING
+// Uses CSS transform: scale() to uniformly scale the
+// entire #app-root to fill the browser window.
+// Works on desktop, tablet, and mobile.
+// ===================================================
+const APP_W = 800;  // SVG viewBox / design width
+const APP_H = 580;  // total design height
+
+function scaleApp() {
+  const root = document.getElementById('app-root');
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // Find scale that makes the app fill the viewport (fit, not fill)
+  const scale = Math.min(vw / APP_W, vh / APP_H);
+
+  // Set root to design size, then scale it up/down
+  root.style.width  = APP_W + 'px';
+  root.style.height = APP_H + 'px';
+  root.style.transformOrigin = 'top left';
+  root.style.transform = `scale(${scale})`;
+  root.style.overflow = 'hidden';
+
+  // Size the body to the scaled dimensions so there's no dead space
+  const scaledW = Math.round(APP_W * scale);
+  const scaledH = Math.round(APP_H * scale);
+  document.body.style.width  = scaledW + 'px';
+  document.body.style.height = scaledH + 'px';
+  document.body.style.overflow = 'hidden';
+
+  // Center horizontally and vertically
+  root.style.marginLeft = Math.max(0, Math.floor((vw - scaledW) / 2)) + 'px';
+  root.style.marginTop  = Math.max(0, Math.floor((vh - scaledH) / 2)) + 'px';
+
+  // Cap panel max-height to ~78% of the design-space map area (below header+tabs)
+  // Header=50px, tabs=40px => map area = APP_H - 90. Panel gets 78% of that.
+  const mapH = APP_H - 90;
+  const panelMaxH = Math.floor(mapH * 0.82);
+  document.querySelectorAll('.landmark-panel').forEach(p => {
+    p.style.maxHeight = panelMaxH + 'px';
+  });
+}
+
+window.addEventListener('resize', scaleApp);
+scaleApp();
+</script>
+</body>
+</html>
